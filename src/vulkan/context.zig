@@ -1,11 +1,14 @@
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
+const util = @import("util.zig");
 const std = @import("std");
 
-const validationLayers = &[_][]const u8{
+const vkCheck = util.vkCheck;
+
+const validationLayers = &[_][*:0]const u8{
     "VK_LAYER_KHRONOS_validation",
 };
 
-const instanceExtensions = &[][]const u8{
+const instanceExtensions = &[_][*:0]const u8{
     c.VK_KHR_SURFACE_EXTENSION_NAME,
     c.VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 };
@@ -13,16 +16,16 @@ const instanceExtensions = &[][]const u8{
 const enableValidationLayers = true;
 
 const VulkanError = error{
-    VulkanInstance,
+    CreateInstance,
 };
 
 pub const Context = struct {
     pub fn create() !@This() {
-        try createVkInstance();
+        _ = try createVkInstance();
         return Context{};
     }
 
-    fn createVkInstance() !void {
+    fn createVkInstance() !c.VkInstance {
         var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
         const allocator = gpa.allocator();
         defer _ = gpa.deinit();
@@ -36,15 +39,15 @@ pub const Context = struct {
         appInfo.apiVersion = c.VK_API_VERSION_1_3;
 
         var layerCount: u32 = 0;
-        _ = c.vkEnumerateInstanceLayerProperties(&layerCount, null);
+        vkCheck(c.vkEnumerateInstanceLayerProperties(&layerCount, null));
         const availableLayers = try allocator.alloc(c.VkLayerProperties, layerCount);
         defer allocator.free(availableLayers);
-        _ = c.vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.ptr);
+        vkCheck(c.vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.ptr));
 
         for (validationLayers) |layerName| {
             var found = false;
             for (availableLayers) |*layerProperties| {
-                if (std.mem.eql(u8, layerName, layerProperties.layerName[0..layerName.len])) {
+                if (util.strcmp(layerName, &layerProperties.layerName)) {
                     found = true;
                     break;
                 }
@@ -70,11 +73,14 @@ pub const Context = struct {
         createInfo.ppEnabledExtensionNames = instanceExtensions;
 
         var instance: c.VkInstance = undefined;
-        if (c.vkCreateInstance(&createInfo, null, &instance) != c.VK_SUCCESS) {
-            std.debug.print("could not create vk instance\n", .{});
-            return VulkanError.VulkanInstance;
+        switch (c.vkCreateInstance(&createInfo, null, &instance)) {
+            c.VK_SUCCESS => {
+                return instance;
+            },
+            else => {
+                std.debug.print("could not create vk instance\n", .{});
+                return VulkanError.CreateInstance;
+            },
         }
-
-        return instance;
     }
 };
