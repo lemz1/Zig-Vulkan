@@ -23,6 +23,7 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
 
     addGlfw(exe, b, target, optimize);
+    addVulkan(exe, b, target, optimize);
 
     b.installArtifact(exe);
 
@@ -152,4 +153,8 @@ fn addGlfw(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.Re
 
     compile.addIncludePath(b.path("vnd/glfw/include"));
     compile.linkLibrary(glfw);
+}
+
+fn addVulkan(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
+    compile.addIncludePath(b.path("vnd/vulkan"));
 }

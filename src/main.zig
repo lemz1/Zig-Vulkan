@@ -1,5 +1,8 @@
 const std = @import("std");
-const c = @cImport(@cInclude("GLFW/glfw3.h"));
+const c = @cImport({
+    @cInclude("GLFW/glfw3.h");
+    @cInclude("vulkan/vulkan.h");
+});
 
 pub fn main() !void {
     _ = c.glfwInit();
