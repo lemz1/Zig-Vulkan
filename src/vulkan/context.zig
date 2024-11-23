@@ -1,6 +1,10 @@
-const c = @cImport(@cInclude("vulkan/vulkan.h"));
-const util = @import("util.zig");
 const std = @import("std");
+const builtin = @import("builtin");
+const Allocator = std.mem.Allocator;
+
+const c = @cImport(@cInclude("vulkan/vulkan.h"));
+
+const util = @import("util.zig");
 
 const vkCheck = util.vkCheck;
 
@@ -13,7 +17,10 @@ const instanceExtensions = &[_][*:0]const u8{
     c.VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 };
 
-const enableValidationLayers = true;
+const enableValidationLayers = switch (builtin.mode) {
+    .Debug, .ReleaseSafe => true,
+    else => false,
+};
 
 const VulkanError = error{
     CreateInstance,
@@ -21,10 +28,12 @@ const VulkanError = error{
 
 pub const Context = struct {
     instance: c.VkInstance,
+    allocator: Allocator,
 
-    pub fn create() !Context {
+    pub fn create(allocator: Allocator) !Context {
         return .{
-            .instance = try createVkInstance(),
+            .instance = try createVkInstance(allocator),
+            .allocator = allocator,
         };
     }
 
@@ -32,11 +41,7 @@ pub const Context = struct {
         c.vkDestroyInstance(self.instance, null);
     }
 
-    fn createVkInstance() !c.VkInstance {
-        var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
-        const allocator = gpa.allocator();
-        defer _ = gpa.deinit();
-
+    fn createVkInstance(allocator: Allocator) !c.VkInstance {
         var appInfo = c.VkApplicationInfo{};
         appInfo.sType = c.VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "Vulkan";

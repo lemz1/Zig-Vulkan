@@ -8,7 +8,11 @@ const GLFW = core.GLFW;
 const Window = core.Window;
 
 pub fn main() !void {
-    var ctx = try Context.create();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var ctx = try Context.create(allocator);
     defer ctx.destroy();
 
     try GLFW.init();
