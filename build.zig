@@ -156,5 +156,8 @@ fn addGlfw(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.Re
 }
 
 fn addVulkan(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
-    compile.addIncludePath(b.path("vnd/vulkan"));
+    compile.addIncludePath(b.path("vnd/vulkan/include"));
+
+    compile.addLibraryPath(b.path("vnd/vulkan/lib"));
+    compile.linkSystemLibrary("vulkan-1");
 }
