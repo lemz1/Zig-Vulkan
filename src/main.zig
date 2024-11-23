@@ -1,20 +1,23 @@
 const std = @import("std");
-const c = @cImport({
-    @cDefine("GLFW_INCLUDE_NONE", {});
-    @cInclude("GLFW/glfw3.h");
-});
-const vk = @import("vulkan/context.zig");
+
+const core = @import("core.zig");
+const vulkan = @import("vulkan.zig");
+
+const Context = vulkan.Context;
+const GLFW = core.GLFW;
+const Window = core.Window;
 
 pub fn main() !void {
-    _ = try vk.Context.create();
+    var ctx = try Context.create();
+    defer ctx.destroy();
 
-    _ = c.glfwInit();
+    try GLFW.init();
+    defer GLFW.deinit();
 
-    const handle = c.glfwCreateWindow(1280, 720, "Vulkan", null, null);
+    var window = try Window.create(1280, 720, "Vulkan");
+    defer window.destroy();
 
-    while (c.glfwWindowShouldClose(handle) == 0) {
-        c.glfwPollEvents();
+    while (!window.shouldClose()) {
+        GLFW.pollEvents();
     }
-
-    c.glfwTerminate();
 }

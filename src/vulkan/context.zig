@@ -20,9 +20,16 @@ const VulkanError = error{
 };
 
 pub const Context = struct {
-    pub fn create() !@This() {
-        _ = try createVkInstance();
-        return Context{};
+    instance: c.VkInstance,
+
+    pub fn create() !Context {
+        return .{
+            .instance = try createVkInstance(),
+        };
+    }
+
+    pub fn destroy(self: *Context) void {
+        c.vkDestroyInstance(self.instance, null);
     }
 
     fn createVkInstance() !c.VkInstance {
