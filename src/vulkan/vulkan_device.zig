@@ -8,7 +8,9 @@ const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const vkCheck = util.vkCheck;
 
-const VulkanInstance = @import("vulkan_instance.zig").VulkanInstance;
+const vulkan = @import("../vulkan.zig");
+
+const VulkanInstance = vulkan.VulkanInstance;
 
 const VulkanDeviceError = error{
     CreateDevice,

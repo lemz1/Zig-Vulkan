@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const c = @cImport({
-    @cDefine("GLFW_INCLUDE_VULKAN", {});
+    @cDefine("GLFW_INCLUDE_NONE", {});
     @cInclude("GLFW/glfw3.h");
 });
 
@@ -11,7 +11,6 @@ const VulkanInstance = vulkan.VulkanInstance;
 
 const WindowError = error{
     CreateWindow,
-    CreateSurface,
     GLFWInit,
 };
 
@@ -41,19 +40,6 @@ pub const Window = struct {
 
     pub fn shouldClose(self: *const Window) bool {
         return c.glfwWindowShouldClose(self.handle) == 1;
-    }
-
-    pub fn createSurface(self: *const Window, instance: *const VulkanInstance) !c.VkSurfaceKHR {
-        var surface: c.VkSurfaceKHR = undefined;
-        switch (c.glfwCreateWindowSurface(@ptrCast(instance.handle), self.handle, null, &surface)) {
-            c.VK_SUCCESS => {
-                return surface;
-            },
-            else => {
-                std.debug.print("[Vulkan] could not create surface\n", .{});
-                return WindowError.CreateSurface;
-            },
-        }
     }
 };
 
