@@ -48,6 +48,8 @@ pub const GLFW = struct {
         if (c.glfwInit() == 0) {
             return WindowError.GLFWInit;
         }
+
+        c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);
     }
 
     pub fn deinit() void {
