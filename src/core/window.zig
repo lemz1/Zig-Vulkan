@@ -64,4 +64,8 @@ pub const GLFW = struct {
     pub fn pollEvents() void {
         c.glfwPollEvents();
     }
+
+    pub fn instanceExtensions(count: *u32) [*c][*c]const u8 {
+        return c.glfwGetRequiredInstanceExtensions(count);
+    }
 };

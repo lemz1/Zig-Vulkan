@@ -23,7 +23,12 @@ const VulkanSwapchainError = error{
 
 pub const VulkanSwapchain = struct {
     handle: c.VkSwapchainKHR,
+    width: u32,
+    height: u32,
     images: []c.VkImage,
+    imageViews: []c.VkImageView,
+    format: c.VkFormat,
+    colorSpace: c.VkColorSpaceKHR,
     allocator: Allocator,
 
     pub fn new(device: *const VulkanDevice, surface: *const VulkanSurface, usage: c.VkImageUsageFlags, allocator: Allocator) !VulkanSwapchain {
@@ -39,15 +44,15 @@ pub const VulkanSwapchain = struct {
         const format = availableFormats[0].format;
         const colorSpace = availableFormats[0].colorSpace;
 
-        var surfaceCapabilites = c.VkSurfaceCapabilitiesKHR{};
-        vkCheck(c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicalDevice, surface.handle, &surfaceCapabilites));
+        var surfaceCapabilities = c.VkSurfaceCapabilitiesKHR{};
+        vkCheck(c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicalDevice, surface.handle, &surfaceCapabilities));
 
-        if (surfaceCapabilites.currentExtent.width == 0xFFFFFFFF) {
-            surfaceCapabilites.currentExtent.width = surfaceCapabilites.minImageExtent.width;
+        if (surfaceCapabilities.currentExtent.width == 0xFFFFFFFF) {
+            surfaceCapabilities.currentExtent.width = surfaceCapabilities.minImageExtent.width;
         }
 
-        if (surfaceCapabilites.currentExtent.height == 0xFFFFFFFF) {
-            surfaceCapabilites.currentExtent.height = surfaceCapabilites.minImageExtent.height;
+        if (surfaceCapabilities.currentExtent.height == 0xFFFFFFFF) {
+            surfaceCapabilities.currentExtent.height = surfaceCapabilities.minImageExtent.height;
         }
 
         var createInfo = c.VkSwapchainCreateInfoKHR{};
@@ -56,7 +61,7 @@ pub const VulkanSwapchain = struct {
         createInfo.minImageCount = 3;
         createInfo.imageFormat = format;
         createInfo.imageColorSpace = colorSpace;
-        createInfo.imageExtent = surfaceCapabilites.currentExtent;
+        createInfo.imageExtent = surfaceCapabilities.currentExtent;
         createInfo.imageArrayLayers = 1;
         createInfo.imageUsage = usage;
         createInfo.imageSharingMode = c.VK_SHARING_MODE_EXCLUSIVE;
@@ -78,15 +83,42 @@ pub const VulkanSwapchain = struct {
         const images = try allocator.alloc(c.VkImage, imageCount);
         vkCheck(c.vkGetSwapchainImagesKHR(device.handle, swapchain, &imageCount, images.ptr));
 
+        const imageViews = try allocator.alloc(c.VkImageView, imageCount);
+        for (0..imageCount) |i| {
+            var imageViewCreateInfo = c.VkImageViewCreateInfo{};
+            imageViewCreateInfo.sType = c.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            imageViewCreateInfo.image = images[i];
+            imageViewCreateInfo.viewType = c.VK_IMAGE_VIEW_TYPE_2D;
+            imageViewCreateInfo.format = format;
+            imageViewCreateInfo.subresourceRange = .{
+                .aspectMask = c.VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            };
+            vkCheck(c.vkCreateImageView(device.handle, &imageViewCreateInfo, null, &imageViews[i]));
+        }
+
         return .{
             .handle = swapchain,
+            .width = surfaceCapabilities.currentExtent.width,
+            .height = surfaceCapabilities.currentExtent.height,
             .images = images,
+            .imageViews = imageViews,
+            .format = format,
+            .colorSpace = colorSpace,
             .allocator = allocator,
         };
     }
 
     pub fn destroy(self: *VulkanSwapchain, device: *const VulkanDevice) void {
-        self.allocator.free(self.images);
+        for (self.imageViews) |imageView| {
+            c.vkDestroyImageView(device.handle, imageView, null);
+        }
         c.vkDestroySwapchainKHR(device.handle, self.handle, null);
+
+        self.allocator.free(self.imageViews);
+        self.allocator.free(self.images);
     }
 };
