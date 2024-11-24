@@ -16,6 +16,7 @@ const VulkanDeviceError = error{
 
 pub const VulkanDevice = struct {
     handle: c.VkDevice,
+    physicalDevice: c.VkPhysicalDevice,
 
     pub fn new(instance: *const VulkanInstance, allocator: Allocator) !VulkanDevice {
         var deviceCount: u32 = 0;
@@ -44,6 +45,7 @@ pub const VulkanDevice = struct {
             c.VK_SUCCESS => {
                 return .{
                     .handle = device,
+                    .physicalDevice = physicalDevice,
                 };
             },
             else => {

@@ -15,7 +15,7 @@ const VulkanInstanceError = error{
 pub const VulkanInstance = struct {
     handle: c.VkInstance,
 
-    pub fn new(enableValidationLayers: bool, validationLayers: []const [*:0]const u8, instanceExtensions: []const [*:0]const u8, allocator: Allocator) !VulkanInstance {
+    pub fn new(enableValidationLayers: bool, validationLayersCount: u32, validationLayers: [*c]const [*c]const u8, instanceExtensionsCount: u32, instanceExtensions: [*c]const [*c]const u8, allocator: Allocator) !VulkanInstance {
         var appInfo = c.VkApplicationInfo{};
         appInfo.sType = c.VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "Vulkan";
@@ -30,17 +30,17 @@ pub const VulkanInstance = struct {
         defer allocator.free(availableLayers);
         vkCheck(c.vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.ptr));
 
-        for (validationLayers) |layerName| {
+        for (0..validationLayersCount) |i| {
             var found = false;
             for (availableLayers) |*layerProperties| {
-                if (util.strcmp(layerName, &layerProperties.layerName)) {
+                if (util.strcmp(validationLayers[i], &layerProperties.layerName)) {
                     found = true;
                     break;
                 }
             }
 
             if (!found) {
-                std.debug.print("could not find validation layer: {s}\n", .{layerName});
+                std.debug.print("could not find validation layer: {s}\n", .{validationLayers[i]});
             }
         }
 
@@ -49,14 +49,14 @@ pub const VulkanInstance = struct {
         createInfo.pApplicationInfo = &appInfo;
 
         if (enableValidationLayers) {
-            createInfo.enabledLayerCount = @intCast(validationLayers.len);
-            createInfo.ppEnabledLayerNames = validationLayers.ptr;
+            createInfo.enabledLayerCount = validationLayersCount;
+            createInfo.ppEnabledLayerNames = validationLayers;
         } else {
             createInfo.enabledLayerCount = 0;
         }
 
-        createInfo.enabledExtensionCount = @intCast(instanceExtensions.len);
-        createInfo.ppEnabledExtensionNames = instanceExtensions.ptr;
+        createInfo.enabledExtensionCount = instanceExtensionsCount;
+        createInfo.ppEnabledExtensionNames = instanceExtensions;
 
         var instance: c.VkInstance = undefined;
         switch (c.vkCreateInstance(&createInfo, null, &instance)) {
