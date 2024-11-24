@@ -4,11 +4,7 @@ const Allocator = std.mem.Allocator;
 
 const util = @import("util.zig");
 
-const c = @cImport({
-    @cInclude("vulkan/vulkan.h");
-    @cDefine("GLFW_INCLUDE_NONE", {});
-    @cInclude("GLFW/glfw3.h");
-});
+const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const vkCheck = util.vkCheck;
 
@@ -29,7 +25,7 @@ pub const VulkanSurface = struct {
 
     pub fn new(instance: *const VulkanInstance, window: *const Window) !VulkanSurface {
         var surface: c.VkSurfaceKHR = undefined;
-        switch (c.glfwCreateWindowSurface(@ptrCast(instance.handle), @ptrCast(window.handle), null, &surface)) {
+        switch (window.createSurface(instance, @ptrCast(&surface))) {
             c.VK_SUCCESS => {
                 return .{
                     .handle = surface,
@@ -43,6 +39,6 @@ pub const VulkanSurface = struct {
     }
 
     pub fn destroy(self: *VulkanSurface, instance: *const VulkanInstance) void {
-        c.vkDestroySurfaceKHR(@ptrCast(instance.handle), self.handle, null);
+        c.vkDestroySurfaceKHR(instance.handle, self.handle, null);
     }
 };

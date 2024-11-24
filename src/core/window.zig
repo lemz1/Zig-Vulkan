@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const c = @cImport({
+    @cInclude("vulkan/vulkan.h");
     @cDefine("GLFW_INCLUDE_NONE", {});
     @cInclude("GLFW/glfw3.h");
 });
@@ -40,6 +41,10 @@ pub const Window = struct {
 
     pub fn shouldClose(self: *const Window) bool {
         return c.glfwWindowShouldClose(self.handle) == 1;
+    }
+
+    pub fn createSurface(self: *const Window, instance: *const VulkanInstance, surface: *c.VkSurfaceKHR) c.VkResult {
+        return c.glfwCreateWindowSurface(@ptrCast(instance.handle), self.handle, null, surface);
     }
 };
 
