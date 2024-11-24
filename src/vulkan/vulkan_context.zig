@@ -32,6 +32,9 @@ pub const VulkanContext = struct {
     swapchain: VulkanSwapchain,
     framebuffers: []c.VkFramebuffer,
     renderPass: VulkanRenderPass,
+    commandPool: c.VkCommandPool,
+    commandBuffer: c.VkCommandBuffer,
+    fence: c.VkFence,
     allocator: Allocator,
 
     pub fn create(window: *const Window, allocator: Allocator) !VulkanContext {
@@ -65,6 +68,32 @@ pub const VulkanContext = struct {
             vkCheck(c.vkCreateFramebuffer(device.handle, &createInfo, null, &framebuffers[i]));
         }
 
+        var commandPool: c.VkCommandPool = undefined;
+        {
+            var createInfo = c.VkCommandPoolCreateInfo{};
+            createInfo.sType = c.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+            createInfo.flags = c.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+            createInfo.queueFamilyIndex = device.graphicsQueue.familyIndex;
+            vkCheck(c.vkCreateCommandPool(device.handle, &createInfo, null, &commandPool));
+        }
+
+        var commandBuffer: c.VkCommandBuffer = undefined;
+        {
+            var allocateInfo = c.VkCommandBufferAllocateInfo{};
+            allocateInfo.sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+            allocateInfo.commandPool = commandPool;
+            allocateInfo.level = c.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+            allocateInfo.commandBufferCount = 1;
+            vkCheck(c.vkAllocateCommandBuffers(device.handle, &allocateInfo, &commandBuffer));
+        }
+
+        var fence: c.VkFence = undefined;
+        {
+            var createInfo = c.VkFenceCreateInfo{};
+            createInfo.sType = c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+            vkCheck(c.vkCreateFence(device.handle, &createInfo, null, &fence));
+        }
+
         return .{
             .instance = instance,
             .device = device,
@@ -72,12 +101,20 @@ pub const VulkanContext = struct {
             .swapchain = swapchain,
             .framebuffers = framebuffers,
             .renderPass = renderPass,
+            .commandPool = commandPool,
+            .commandBuffer = commandBuffer,
+            .fence = fence,
             .allocator = allocator,
         };
     }
 
     pub fn destroy(self: *VulkanContext) void {
         self.device.wait();
+
+        c.vkDestroyFence(self.device.handle, self.fence, null);
+
+        c.vkFreeCommandBuffers(self.device.handle, self.commandPool, 1, &self.commandBuffer);
+        c.vkDestroyCommandPool(self.device.handle, self.commandPool, null);
 
         for (self.framebuffers) |framebuffer| {
             c.vkDestroyFramebuffer(self.device.handle, framebuffer, null);
