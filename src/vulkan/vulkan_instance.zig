@@ -2,46 +2,20 @@ const std = @import("std");
 const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
 
-const c = @cImport(@cInclude("vulkan/vulkan.h"));
-
 const util = @import("util.zig");
+
+const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const vkCheck = util.vkCheck;
 
-const validationLayers = &[_][*:0]const u8{
-    "VK_LAYER_KHRONOS_validation",
-};
-
-const instanceExtensions = &[_][*:0]const u8{
-    c.VK_KHR_SURFACE_EXTENSION_NAME,
-    c.VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-};
-
-const enableValidationLayers = switch (builtin.mode) {
-    .Debug, .ReleaseSafe => true,
-    else => false,
-};
-
-const VulkanError = error{
+const VulkanInstanceError = error{
     CreateInstance,
 };
 
-pub const Context = struct {
-    instance: c.VkInstance,
-    allocator: Allocator,
+pub const VulkanInstance = struct {
+    handle: c.VkInstance,
 
-    pub fn create(allocator: Allocator) !Context {
-        return .{
-            .instance = try createVkInstance(allocator),
-            .allocator = allocator,
-        };
-    }
-
-    pub fn destroy(self: *Context) void {
-        c.vkDestroyInstance(self.instance, null);
-    }
-
-    fn createVkInstance(allocator: Allocator) !c.VkInstance {
+    pub fn new(enableValidationLayers: bool, validationLayers: []const [*:0]const u8, instanceExtensions: []const [*:0]const u8, allocator: Allocator) !VulkanInstance {
         var appInfo = c.VkApplicationInfo{};
         appInfo.sType = c.VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = "Vulkan";
@@ -75,24 +49,30 @@ pub const Context = struct {
         createInfo.pApplicationInfo = &appInfo;
 
         if (enableValidationLayers) {
-            createInfo.enabledLayerCount = validationLayers.len;
-            createInfo.ppEnabledLayerNames = validationLayers;
+            createInfo.enabledLayerCount = @intCast(validationLayers.len);
+            createInfo.ppEnabledLayerNames = validationLayers.ptr;
         } else {
             createInfo.enabledLayerCount = 0;
         }
 
-        createInfo.enabledExtensionCount = instanceExtensions.len;
-        createInfo.ppEnabledExtensionNames = instanceExtensions;
+        createInfo.enabledExtensionCount = @intCast(instanceExtensions.len);
+        createInfo.ppEnabledExtensionNames = instanceExtensions.ptr;
 
         var instance: c.VkInstance = undefined;
         switch (c.vkCreateInstance(&createInfo, null, &instance)) {
             c.VK_SUCCESS => {
-                return instance;
+                return .{
+                    .handle = instance,
+                };
             },
             else => {
-                std.debug.print("could not create vk instance\n", .{});
-                return VulkanError.CreateInstance;
+                std.debug.print("[Vulkan] could not create vulkan instance\n", .{});
+                return VulkanInstanceError.CreateInstance;
             },
         }
+    }
+
+    pub fn destroy(self: *VulkanInstance) void {
+        c.vkDestroyInstance(self.handle, null);
     }
 };

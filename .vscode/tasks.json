@@ -3,7 +3,15 @@
   "tasks": [
     {
       "label": "Build Debug",
-      "command": "${workspaceFolder}/build.bat",
+      "command": "${workspaceFolder}/build-debug.bat",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Build Release",
+      "command": "${workspaceFolder}/build-release.bat",
       "group": {
         "kind": "build",
         "isDefault": true

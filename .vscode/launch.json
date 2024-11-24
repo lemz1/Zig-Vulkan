@@ -11,6 +11,14 @@
       "request": "launch",
       "cwd": "${workspaceFolder}/zig-out/bin",
       "preLaunchTask": "Build Debug"
+    },
+    {
+      "name": "Run Release",
+      "program": "${workspaceFolder}/zig-out/bin/Vulkan.exe",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/zig-out/bin",
+      "preLaunchTask": "Build Release"
     }
   ]
 }

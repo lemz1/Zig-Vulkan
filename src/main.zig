@@ -3,7 +3,7 @@ const std = @import("std");
 const core = @import("core.zig");
 const vulkan = @import("vulkan.zig");
 
-const Context = vulkan.Context;
+const VulkanContext = vulkan.VulkanContext;
 const GLFW = core.GLFW;
 const Window = core.Window;
 
@@ -12,7 +12,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var ctx = try Context.create(allocator);
+    var ctx = try VulkanContext.create(allocator);
     defer ctx.destroy();
 
     try GLFW.init();
