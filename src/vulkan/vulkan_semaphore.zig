@@ -37,7 +37,7 @@ pub const VulkanSemaphore = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create fence\n", .{});
+                std.debug.print("[Vulkan] could not create semaphore\n", .{});
                 return VulkanSemaphoreError.CreateSemaphore;
             },
         }

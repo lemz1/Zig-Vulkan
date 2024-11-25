@@ -10,3 +10,4 @@ pub const VulkanFence = @import("vulkan/vulkan_fence.zig").VulkanFence;
 pub const VulkanSemaphore = @import("vulkan/vulkan_semaphore.zig").VulkanSemaphore;
 pub const VulkanCommandPool = @import("vulkan/vulkan_command_pool.zig").VulkanCommandPool;
 pub const VulkanCommandBuffer = @import("vulkan/vulkan_command_buffer.zig").VulkanCommandBuffer;
+pub const VulkanShaderModule = @import("vulkan/vulkan_shader_module.zig").VulkanShaderModule;

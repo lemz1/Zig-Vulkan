@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) !void {
+pub fn build(b: *std.Build) void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -28,6 +28,12 @@ pub fn build(b: *std.Build) !void {
 
     addGlfw(exe, b, target, optimize);
     addVulkan(exe, b, target, optimize, allocator);
+
+    b.installDirectory(.{
+        .source_dir = b.path("assets"),
+        .install_dir = .{ .bin = {} },
+        .install_subdir = "assets",
+    });
 
     b.installArtifact(exe);
 
@@ -165,13 +171,13 @@ fn addVulkan(compile: *std.Build.Step.Compile, _: *std.Build, _: std.Build.Resol
     };
     defer allocator.free(vulkanSDKPath);
 
-    const vulkanInclude = std.mem.concat(allocator, u8, &[_][]const u8{ vulkanSDKPath, "/Include" }) catch {
-        @panic("could not concat vulkan include");
+    const vulkanInclude = std.fs.path.join(allocator, &[_][]const u8{ vulkanSDKPath, "Include" }) catch {
+        @panic("could not create vulkan include path");
     };
     defer allocator.free(vulkanInclude);
 
-    const vulkanLib = std.mem.concat(allocator, u8, &[_][]const u8{ vulkanSDKPath, "/Lib" }) catch {
-        @panic("could not concat vulkan lib");
+    const vulkanLib = std.fs.path.join(allocator, &[_][]const u8{ vulkanSDKPath, "Lib" }) catch {
+        @panic("could not create vulkan lib path");
     };
     defer allocator.free(vulkanLib);
 
