@@ -15,6 +15,10 @@ const VulkanDevice = vulkan.VulkanDevice;
 const VulkanSurface = vulkan.VulkanSurface;
 const VulkanSwapchain = vulkan.VulkanSwapchain;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
+const VulkanFramebuffer = vulkan.VulkanFramebuffer;
+const VulkanFence = vulkan.VulkanFence;
+const VulkanCommandPool = vulkan.VulkanCommandPool;
+const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
 
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
@@ -30,11 +34,11 @@ pub const VulkanContext = struct {
     device: VulkanDevice,
     surface: VulkanSurface,
     swapchain: VulkanSwapchain,
-    framebuffers: []c.VkFramebuffer,
+    framebuffers: []VulkanFramebuffer,
     renderPass: VulkanRenderPass,
-    commandPool: c.VkCommandPool,
-    commandBuffer: c.VkCommandBuffer,
-    fence: c.VkFence,
+    commandPool: VulkanCommandPool,
+    commandBuffer: VulkanCommandBuffer,
+    fence: VulkanFence,
     allocator: Allocator,
 
     pub fn create(window: *const Window, allocator: Allocator) !VulkanContext {
@@ -55,44 +59,16 @@ pub const VulkanContext = struct {
         const swapchain = try VulkanSwapchain.new(&device, &surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, allocator);
         const renderPass = try VulkanRenderPass.new(&device, swapchain.format);
 
-        const framebuffers = try allocator.alloc(c.VkFramebuffer, swapchain.images.len);
+        const framebuffers = try allocator.alloc(VulkanFramebuffer, swapchain.images.len);
         for (0..swapchain.images.len) |i| {
-            var createInfo = c.VkFramebufferCreateInfo{};
-            createInfo.sType = c.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            createInfo.renderPass = renderPass.handle;
-            createInfo.attachmentCount = 1;
-            createInfo.pAttachments = &swapchain.imageViews[i];
-            createInfo.width = swapchain.width;
-            createInfo.height = swapchain.height;
-            createInfo.layers = 1;
-            vkCheck(c.vkCreateFramebuffer(device.handle, &createInfo, null, &framebuffers[i]));
+            framebuffers[i] = try VulkanFramebuffer.new(&device, &renderPass, 1, &swapchain.imageViews[i], swapchain.width, swapchain.height);
         }
 
-        var commandPool: c.VkCommandPool = undefined;
-        {
-            var createInfo = c.VkCommandPoolCreateInfo{};
-            createInfo.sType = c.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-            createInfo.flags = c.VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
-            createInfo.queueFamilyIndex = device.graphicsQueue.familyIndex;
-            vkCheck(c.vkCreateCommandPool(device.handle, &createInfo, null, &commandPool));
-        }
+        const commandPool = try VulkanCommandPool.new(&device, device.graphicsQueue.familyIndex);
 
-        var commandBuffer: c.VkCommandBuffer = undefined;
-        {
-            var allocateInfo = c.VkCommandBufferAllocateInfo{};
-            allocateInfo.sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocateInfo.commandPool = commandPool;
-            allocateInfo.level = c.VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            allocateInfo.commandBufferCount = 1;
-            vkCheck(c.vkAllocateCommandBuffers(device.handle, &allocateInfo, &commandBuffer));
-        }
+        const commandBuffer = try VulkanCommandBuffer.new(&device, &commandPool);
 
-        var fence: c.VkFence = undefined;
-        {
-            var createInfo = c.VkFenceCreateInfo{};
-            createInfo.sType = c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-            vkCheck(c.vkCreateFence(device.handle, &createInfo, null, &fence));
-        }
+        const fence = try VulkanFence.new(&device);
 
         return .{
             .instance = instance,
@@ -111,13 +87,13 @@ pub const VulkanContext = struct {
     pub fn destroy(self: *VulkanContext) void {
         self.device.wait();
 
-        c.vkDestroyFence(self.device.handle, self.fence, null);
+        self.fence.destroy(&self.device);
 
-        c.vkFreeCommandBuffers(self.device.handle, self.commandPool, 1, &self.commandBuffer);
-        c.vkDestroyCommandPool(self.device.handle, self.commandPool, null);
+        self.commandBuffer.destroy(&self.device, &self.commandPool);
+        self.commandPool.destroy(&self.device);
 
-        for (self.framebuffers) |framebuffer| {
-            c.vkDestroyFramebuffer(self.device.handle, framebuffer, null);
+        for (self.framebuffers) |*framebuffer| {
+            framebuffer.destroy(&self.device);
         }
 
         self.renderPass.destroy(&self.device);

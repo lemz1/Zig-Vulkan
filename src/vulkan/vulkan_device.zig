@@ -43,12 +43,11 @@ pub const VulkanDevice = struct {
         defer allocator.free(queueFamilies);
         c.vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &numQueueFamilies, queueFamilies.ptr);
 
-        var graphicsQueue: VulkanQueue = undefined;
-
+        var graphicsFamilyIndex: u32 = 0;
         for (0..numQueueFamilies) |i| {
             const queueFamily = &queueFamilies[i];
             if ((queueFamily.queueFlags & c.VK_QUEUE_GRAPHICS_BIT) != 0) {
-                graphicsQueue.familyIndex = @intCast(i);
+                graphicsFamilyIndex = @intCast(i);
                 break;
             }
         }
@@ -57,7 +56,7 @@ pub const VulkanDevice = struct {
 
         var queueCreateInfo = c.VkDeviceQueueCreateInfo{};
         queueCreateInfo.sType = c.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = graphicsQueue.familyIndex;
+        queueCreateInfo.queueFamilyIndex = graphicsFamilyIndex;
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
 
@@ -78,13 +77,14 @@ pub const VulkanDevice = struct {
             },
         }
 
-        c.vkGetDeviceQueue(device, graphicsQueue.familyIndex, 0, &graphicsQueue.queue);
+        var graphicsQueue: c.VkQueue = undefined;
+        c.vkGetDeviceQueue(device, graphicsFamilyIndex, 0, &graphicsQueue);
 
         return .{
             .handle = device,
             .physicalDevice = physicalDevice,
             .physicalDeviceProperties = physicalDeviceProperties,
-            .graphicsQueue = graphicsQueue,
+            .graphicsQueue = VulkanQueue.new(graphicsQueue, graphicsFamilyIndex),
         };
     }
 

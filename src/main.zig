@@ -29,16 +29,11 @@ pub fn main() !void {
         GLFW.pollEvents();
 
         var imageIndex: u32 = 0;
-        _ = c.vkAcquireNextImageKHR(ctx.device.handle, ctx.swapchain.handle, std.math.maxInt(u64), null, ctx.fence, &imageIndex);
+        _ = c.vkAcquireNextImageKHR(ctx.device.handle, ctx.swapchain.handle, std.math.maxInt(u64), null, ctx.fence.handle, &imageIndex);
 
-        vkCheck(c.vkResetCommandPool(ctx.device.handle, ctx.commandPool, 0));
+        ctx.commandPool.reset(&ctx.device);
 
-        {
-            var beginInfo = c.VkCommandBufferBeginInfo{};
-            beginInfo.sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = c.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-            vkCheck(c.vkBeginCommandBuffer(ctx.commandBuffer, &beginInfo));
-        }
+        ctx.commandBuffer.begin();
         {
             var clearValue = c.VkClearValue{
                 .color = .{
@@ -49,27 +44,27 @@ pub fn main() !void {
             var beginInfo = c.VkRenderPassBeginInfo{};
             beginInfo.sType = c.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
             beginInfo.renderPass = ctx.renderPass.handle;
-            beginInfo.framebuffer = ctx.framebuffers[imageIndex];
+            beginInfo.framebuffer = ctx.framebuffers[imageIndex].handle;
             beginInfo.renderArea = .{
                 .offset = .{ .x = 0, .y = 0 },
                 .extent = .{ .width = ctx.swapchain.width, .height = ctx.swapchain.height },
             };
             beginInfo.clearValueCount = 1;
             beginInfo.pClearValues = &clearValue;
-            c.vkCmdBeginRenderPass(ctx.commandBuffer, &beginInfo, c.VK_SUBPASS_CONTENTS_INLINE);
+            ctx.commandBuffer.beginRenderPass(&beginInfo);
 
-            c.vkCmdEndRenderPass(ctx.commandBuffer);
+            ctx.commandBuffer.endRenderPass();
         }
-        vkCheck(c.vkEndCommandBuffer(ctx.commandBuffer));
+        ctx.commandBuffer.end();
 
-        vkCheck(c.vkWaitForFences(ctx.device.handle, 1, &ctx.fence, c.VK_TRUE, std.math.maxInt(u64)));
-        vkCheck(c.vkResetFences(ctx.device.handle, 1, &ctx.fence));
+        ctx.fence.wait(&ctx.device);
+        ctx.fence.reset(&ctx.device);
 
         var submitInfo = c.VkSubmitInfo{};
         submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &ctx.commandBuffer;
-        vkCheck(c.vkQueueSubmit(ctx.device.graphicsQueue.queue, 1, &submitInfo, null));
+        submitInfo.pCommandBuffers = &ctx.commandBuffer.handle;
+        ctx.device.graphicsQueue.submit(&submitInfo, null);
 
         ctx.device.wait();
 
@@ -78,6 +73,6 @@ pub fn main() !void {
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &ctx.swapchain.handle;
         presentInfo.pImageIndices = &imageIndex;
-        _ = c.vkQueuePresentKHR(ctx.device.graphicsQueue.queue, &presentInfo);
+        _ = ctx.device.graphicsQueue.present(&presentInfo);
     }
 }
