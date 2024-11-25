@@ -1,6 +1,10 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
     const target = b.standardTargetOptions(.{});
 
     switch (target.result.os.tag) {
@@ -23,7 +27,7 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
 
     addGlfw(exe, b, target, optimize);
-    addVulkan(exe, b, target, optimize);
+    addVulkan(exe, b, target, optimize, allocator);
 
     b.installArtifact(exe);
 
@@ -155,9 +159,27 @@ fn addGlfw(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.Re
     compile.linkLibrary(glfw);
 }
 
-fn addVulkan(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
-    compile.addIncludePath(b.path("vnd/vulkan/include"));
+fn addVulkan(compile: *std.Build.Step.Compile, _: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode, allocator: std.mem.Allocator) void {
+    const vulkanSDKPath = std.process.getEnvVarOwned(allocator, "VULKAN_SDK") catch {
+        @panic("could not find VULKAN_SDK environment variable\n");
+    };
+    defer allocator.free(vulkanSDKPath);
 
-    compile.addLibraryPath(b.path("vnd/vulkan/lib"));
+    const vulkanInclude = std.mem.concat(allocator, u8, &[_][]const u8{ vulkanSDKPath, "/Include" }) catch {
+        @panic("could not concat vulkan include");
+    };
+    defer allocator.free(vulkanInclude);
+
+    const vulkanLib = std.mem.concat(allocator, u8, &[_][]const u8{ vulkanSDKPath, "/Lib" }) catch {
+        @panic("could not concat vulkan lib");
+    };
+    defer allocator.free(vulkanLib);
+
+    std.debug.print("{s}\n", .{vulkanInclude});
+    std.debug.print("{s}\n", .{vulkanLib});
+
+    compile.addIncludePath(.{ .cwd_relative = vulkanInclude });
+
+    compile.addLibraryPath(.{ .cwd_relative = vulkanLib });
     compile.linkSystemLibrary("vulkan-1");
 }
