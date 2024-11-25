@@ -16,3 +16,11 @@ pub fn vkCheck(res: c.VkResult) void {
         },
     }
 }
+
+pub fn propertyArray(comptime FieldType: type, allocator: std.mem.Allocator, obj: anytype, comptime fieldName: []const u8) ![]FieldType {
+    const array = try allocator.alloc(FieldType, obj.len);
+    for (0..obj.len) |i| {
+        array[i] = @field(obj[i], fieldName);
+    }
+    return array;
+}
