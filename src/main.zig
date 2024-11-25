@@ -29,7 +29,7 @@ pub fn main() !void {
         GLFW.pollEvents();
 
         var imageIndex: u32 = 0;
-        _ = c.vkAcquireNextImageKHR(ctx.device.handle, ctx.swapchain.handle, std.math.maxInt(u64), null, ctx.fence.handle, &imageIndex);
+        _ = ctx.swapchain.acquireNextImage(&ctx.device, null, &ctx.fence, &imageIndex);
 
         ctx.commandPool.reset(&ctx.device);
 

@@ -175,9 +175,6 @@ fn addVulkan(compile: *std.Build.Step.Compile, _: *std.Build, _: std.Build.Resol
     };
     defer allocator.free(vulkanLib);
 
-    std.debug.print("{s}\n", .{vulkanInclude});
-    std.debug.print("{s}\n", .{vulkanLib});
-
     compile.addIncludePath(.{ .cwd_relative = vulkanInclude });
 
     compile.addLibraryPath(.{ .cwd_relative = vulkanLib });

@@ -14,6 +14,8 @@ const vulkan = @import("../vulkan.zig");
 const VulkanInstance = vulkan.VulkanInstance;
 const VulkanDevice = vulkan.VulkanDevice;
 const VulkanSurface = vulkan.VulkanSurface;
+const VulkanFence = vulkan.VulkanFence;
+const VulkanSemaphore = vulkan.VulkanSemaphore;
 
 const Window = core.Window;
 
@@ -120,5 +122,16 @@ pub const VulkanSwapchain = struct {
 
         self.allocator.free(self.imageViews);
         self.allocator.free(self.images);
+    }
+
+    pub fn acquireNextImage(self: *const VulkanSwapchain, device: *const VulkanDevice, semaphore: ?*const VulkanSemaphore, fence: ?*const VulkanFence, imageIndex: *u32) c.VkResult {
+        return c.vkAcquireNextImageKHR(
+            device.handle,
+            self.handle,
+            std.math.maxInt(u64),
+            if (semaphore != null) semaphore.?.handle else null,
+            if (fence != null) fence.?.handle else null,
+            imageIndex,
+        );
     }
 };
