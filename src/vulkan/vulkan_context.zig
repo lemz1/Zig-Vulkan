@@ -31,20 +31,28 @@ const enableValidationLayers = switch (builtin.mode) {
 };
 
 pub const VulkanContext = struct {
+    framesInFlight: u32,
+
     instance: VulkanInstance,
     device: VulkanDevice,
     surface: VulkanSurface,
     swapchain: VulkanSwapchain,
     framebuffers: []VulkanFramebuffer,
     renderPass: VulkanRenderPass,
-    commandPool: VulkanCommandPool,
-    commandBuffer: VulkanCommandBuffer,
-    fence: VulkanFence,
-    acquireSemaphore: VulkanSemaphore,
-    releaseSemaphore: VulkanSemaphore,
+    commandPools: []VulkanCommandPool,
+    commandBuffers: []VulkanCommandBuffer,
+    fences: []VulkanFence,
+    acquireSemaphores: []VulkanSemaphore,
+    releaseSemaphores: []VulkanSemaphore,
     allocator: Allocator,
 
-    pub fn create(window: *const Window, allocator: Allocator) !VulkanContext {
+    const CreateOptions = struct {
+        framesInFlight: u32 = 2,
+    };
+
+    pub fn create(window: *const Window, options: CreateOptions, allocator: Allocator) !VulkanContext {
+        const framesInFlight: u32 = if (options.framesInFlight >= 1) options.framesInFlight else 2;
+
         const validationLayers: []const [*:0]const u8 = &[_][*:0]const u8{
             "VK_LAYER_KHRONOS_validation",
         };
@@ -67,27 +75,38 @@ pub const VulkanContext = struct {
             framebuffers[i] = try VulkanFramebuffer.new(&device, &renderPass, 1, &swapchain.imageViews[i], swapchain.width, swapchain.height);
         }
 
-        const commandPool = try VulkanCommandPool.new(&device, device.graphicsQueue.familyIndex);
+        const commandPools = try allocator.alloc(VulkanCommandPool, framesInFlight);
+        const commandBuffers = try allocator.alloc(VulkanCommandBuffer, framesInFlight);
 
-        const commandBuffer = try VulkanCommandBuffer.new(&device, &commandPool);
+        const fences = try allocator.alloc(VulkanFence, framesInFlight);
 
-        const fence = try VulkanFence.new(&device, true);
+        const acquireSemaphores = try allocator.alloc(VulkanSemaphore, framesInFlight);
+        const releaseSemaphores = try allocator.alloc(VulkanSemaphore, framesInFlight);
 
-        const acquireSemaphore = try VulkanSemaphore.new(&device);
-        const releaseSemaphore = try VulkanSemaphore.new(&device);
+        for (0..framesInFlight) |i| {
+            commandPools[i] = try VulkanCommandPool.new(&device, device.graphicsQueue.familyIndex);
+            commandBuffers[i] = try VulkanCommandBuffer.new(&device, &commandPools[i]);
+
+            fences[i] = try VulkanFence.new(&device, true);
+
+            acquireSemaphores[i] = try VulkanSemaphore.new(&device);
+            releaseSemaphores[i] = try VulkanSemaphore.new(&device);
+        }
 
         return .{
+            .framesInFlight = framesInFlight,
+
             .instance = instance,
             .device = device,
             .surface = surface,
             .swapchain = swapchain,
             .framebuffers = framebuffers,
             .renderPass = renderPass,
-            .commandPool = commandPool,
-            .commandBuffer = commandBuffer,
-            .fence = fence,
-            .acquireSemaphore = acquireSemaphore,
-            .releaseSemaphore = releaseSemaphore,
+            .commandPools = commandPools,
+            .commandBuffers = commandBuffers,
+            .fences = fences,
+            .acquireSemaphores = acquireSemaphores,
+            .releaseSemaphores = releaseSemaphores,
             .allocator = allocator,
         };
     }
@@ -95,13 +114,15 @@ pub const VulkanContext = struct {
     pub fn destroy(self: *VulkanContext) void {
         self.device.wait();
 
-        self.releaseSemaphore.destroy(&self.device);
-        self.acquireSemaphore.destroy(&self.device);
+        for (0..self.framesInFlight) |i| {
+            self.commandBuffers[i].destroy(&self.device, &self.commandPools[i]);
+            self.commandPools[i].destroy(&self.device);
 
-        self.fence.destroy(&self.device);
+            self.releaseSemaphores[i].destroy(&self.device);
+            self.acquireSemaphores[i].destroy(&self.device);
 
-        self.commandBuffer.destroy(&self.device, &self.commandPool);
-        self.commandPool.destroy(&self.device);
+            self.fences[i].destroy(&self.device);
+        }
 
         for (self.framebuffers) |*framebuffer| {
             framebuffer.destroy(&self.device);
@@ -113,6 +134,11 @@ pub const VulkanContext = struct {
         self.device.destroy();
         self.instance.destroy();
 
+        self.allocator.free(self.releaseSemaphores);
+        self.allocator.free(self.acquireSemaphores);
+        self.allocator.free(self.fences);
+        self.allocator.free(self.commandBuffers);
+        self.allocator.free(self.commandPools);
         self.allocator.free(self.framebuffers);
     }
 };

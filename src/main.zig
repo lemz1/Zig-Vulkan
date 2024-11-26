@@ -23,7 +23,7 @@ pub fn main() !void {
     var window = try Window.create(1280, 720, "Vulkan");
     defer window.destroy();
 
-    var ctx = try VulkanContext.create(&window, allocator);
+    var ctx = try VulkanContext.create(&window, .{}, allocator);
     defer ctx.destroy();
 
     var pipeline = try VulkanPipeline.new(
@@ -39,18 +39,25 @@ pub fn main() !void {
 
     defer ctx.device.wait();
 
+    var frameIndex: u32 = 0;
     while (!window.shouldClose()) {
         GLFW.pollEvents();
 
+        const commandPool = ctx.commandPools[frameIndex];
+        const commandBuffer = ctx.commandBuffers[frameIndex];
+        const fence = ctx.fences[frameIndex];
+        const acquireSemaphore = ctx.acquireSemaphores[frameIndex];
+        const releaseSemaphore = ctx.releaseSemaphores[frameIndex];
+
+        fence.wait(&ctx.device);
+        fence.reset(&ctx.device);
+
         var imageIndex: u32 = 0;
-        _ = ctx.swapchain.acquireNextImage(&ctx.device, &ctx.acquireSemaphore, null, &imageIndex);
+        _ = ctx.swapchain.acquireNextImage(&ctx.device, &acquireSemaphore, null, &imageIndex);
 
-        ctx.fence.wait(&ctx.device);
-        ctx.fence.reset(&ctx.device);
+        commandPool.reset(&ctx.device);
 
-        ctx.commandPool.reset(&ctx.device);
-
-        ctx.commandBuffer.begin();
+        commandBuffer.begin();
         {
             var clearValue = c.VkClearValue{
                 .color = .{
@@ -68,26 +75,26 @@ pub fn main() !void {
             };
             beginInfo.clearValueCount = 1;
             beginInfo.pClearValues = &clearValue;
-            ctx.commandBuffer.beginRenderPass(&beginInfo);
+            commandBuffer.beginRenderPass(&beginInfo);
 
-            ctx.commandBuffer.bindGraphicsPipeline(&pipeline);
-            ctx.commandBuffer.draw(3);
+            commandBuffer.bindGraphicsPipeline(&pipeline);
+            commandBuffer.draw(3);
 
-            ctx.commandBuffer.endRenderPass();
+            commandBuffer.endRenderPass();
         }
-        ctx.commandBuffer.end();
+        commandBuffer.end();
 
         var submitInfo = c.VkSubmitInfo{};
         submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &ctx.commandBuffer.handle;
+        submitInfo.pCommandBuffers = &commandBuffer.handle;
         submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores = &ctx.acquireSemaphore.handle;
+        submitInfo.pWaitSemaphores = &acquireSemaphore.handle;
         submitInfo.signalSemaphoreCount = 1;
-        submitInfo.pSignalSemaphores = &ctx.releaseSemaphore.handle;
+        submitInfo.pSignalSemaphores = &releaseSemaphore.handle;
         const waitMask: c.VkPipelineStageFlags = c.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         submitInfo.pWaitDstStageMask = &waitMask;
-        ctx.device.graphicsQueue.submit(&submitInfo, &ctx.fence);
+        ctx.device.graphicsQueue.submit(&submitInfo, &fence);
 
         var presentInfo = c.VkPresentInfoKHR{};
         presentInfo.sType = c.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -95,7 +102,9 @@ pub fn main() !void {
         presentInfo.pSwapchains = &ctx.swapchain.handle;
         presentInfo.pImageIndices = &imageIndex;
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &ctx.releaseSemaphore.handle;
+        presentInfo.pWaitSemaphores = &releaseSemaphore.handle;
         _ = ctx.device.graphicsQueue.present(&presentInfo);
+
+        frameIndex = (frameIndex + 1) % ctx.framesInFlight;
     }
 }
