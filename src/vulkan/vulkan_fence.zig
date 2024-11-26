@@ -25,9 +25,10 @@ const VulkanFenceError = error{
 pub const VulkanFence = struct {
     handle: c.VkFence,
 
-    pub fn new(device: *const VulkanDevice) !VulkanFence {
+    pub fn new(device: *const VulkanDevice, createSignaled: bool) !VulkanFence {
         var createInfo = c.VkFenceCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        createInfo.flags = if (createSignaled) c.VK_FENCE_CREATE_SIGNALED_BIT else 0;
 
         var fence: c.VkFence = undefined;
         switch (c.vkCreateFence(device.handle, &createInfo, null, &fence)) {

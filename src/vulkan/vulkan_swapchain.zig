@@ -124,13 +124,22 @@ pub const VulkanSwapchain = struct {
         self.allocator.free(self.images);
     }
 
-    pub fn acquireNextImage(self: *const VulkanSwapchain, device: *const VulkanDevice, semaphore: ?*const VulkanSemaphore, fence: ?*const VulkanFence, imageIndex: *u32) c.VkResult {
+    pub fn acquireNextImage(
+        self: *const VulkanSwapchain,
+        device: *const VulkanDevice,
+        semaphore: ?*const VulkanSemaphore,
+        fence: ?*const VulkanFence,
+        imageIndex: *u32,
+    ) c.VkResult {
+        const semaphoreHandle: c.VkSemaphore = if (semaphore) |v| v.handle else null;
+        const fenceHandle: c.VkFence = if (fence) |v| v.handle else null;
+
         return c.vkAcquireNextImageKHR(
             device.handle,
             self.handle,
             std.math.maxInt(u64),
-            if (semaphore != null) semaphore.?.handle else null,
-            if (fence != null) fence.?.handle else null,
+            semaphoreHandle,
+            fenceHandle,
             imageIndex,
         );
     }

@@ -24,8 +24,10 @@ pub const VulkanQueue = struct {
         };
     }
 
-    pub fn submit(self: *const VulkanQueue, submitInfo: *const c.VkSubmitInfo, fence: ?VulkanFence) void {
-        vkCheck(c.vkQueueSubmit(self.queue, 1, submitInfo, if (fence != null) fence.?.handle else null));
+    pub fn submit(self: *const VulkanQueue, submitInfo: *const c.VkSubmitInfo, fence: ?*const VulkanFence) void {
+        const fenceHandle: c.VkFence = if (fence) |v| v.handle else null;
+
+        vkCheck(c.vkQueueSubmit(self.queue, 1, submitInfo, fenceHandle));
     }
 
     pub fn present(self: *const VulkanQueue, presentInfo: *const c.VkPresentInfoKHR) c.VkResult {

@@ -17,6 +17,7 @@ const VulkanSwapchain = vulkan.VulkanSwapchain;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanFramebuffer = vulkan.VulkanFramebuffer;
 const VulkanFence = vulkan.VulkanFence;
+const VulkanSemaphore = vulkan.VulkanSemaphore;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
 
@@ -39,6 +40,8 @@ pub const VulkanContext = struct {
     commandPool: VulkanCommandPool,
     commandBuffer: VulkanCommandBuffer,
     fence: VulkanFence,
+    acquireSemaphore: VulkanSemaphore,
+    releaseSemaphore: VulkanSemaphore,
     allocator: Allocator,
 
     pub fn create(window: *const Window, allocator: Allocator) !VulkanContext {
@@ -68,7 +71,10 @@ pub const VulkanContext = struct {
 
         const commandBuffer = try VulkanCommandBuffer.new(&device, &commandPool);
 
-        const fence = try VulkanFence.new(&device);
+        const fence = try VulkanFence.new(&device, true);
+
+        const acquireSemaphore = try VulkanSemaphore.new(&device);
+        const releaseSemaphore = try VulkanSemaphore.new(&device);
 
         return .{
             .instance = instance,
@@ -80,12 +86,17 @@ pub const VulkanContext = struct {
             .commandPool = commandPool,
             .commandBuffer = commandBuffer,
             .fence = fence,
+            .acquireSemaphore = acquireSemaphore,
+            .releaseSemaphore = releaseSemaphore,
             .allocator = allocator,
         };
     }
 
     pub fn destroy(self: *VulkanContext) void {
         self.device.wait();
+
+        self.releaseSemaphore.destroy(&self.device);
+        self.acquireSemaphore.destroy(&self.device);
 
         self.fence.destroy(&self.device);
 
