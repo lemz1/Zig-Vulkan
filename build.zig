@@ -26,6 +26,8 @@ pub fn build(b: *std.Build) void {
 
     exe.linkLibC();
 
+    addPlatformLibs(exe, target);
+
     addGlfw(exe, b, target, optimize);
     addVulkan(exe, b, target, optimize, allocator);
 
