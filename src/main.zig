@@ -8,6 +8,7 @@ const core = @import("core.zig");
 const vulkan = @import("vulkan.zig");
 
 const VulkanContext = vulkan.VulkanContext;
+const VulkanPipeline = vulkan.VulkanPipeline;
 const GLFW = core.GLFW;
 const Window = core.Window;
 
@@ -24,6 +25,17 @@ pub fn main() !void {
 
     var ctx = try VulkanContext.create(&window, allocator);
     defer ctx.destroy();
+
+    var pipeline = try VulkanPipeline.new(
+        &ctx.device,
+        "assets/shaders/simple_vert.spv",
+        "assets/shaders/simple_frag.spv",
+        &ctx.renderPass,
+        ctx.swapchain.width,
+        ctx.swapchain.height,
+        allocator,
+    );
+    defer pipeline.destroy(&ctx.device);
 
     while (!window.shouldClose()) {
         GLFW.pollEvents();
