@@ -65,6 +65,9 @@ pub fn main() !void {
             beginInfo.pClearValues = &clearValue;
             ctx.commandBuffer.beginRenderPass(&beginInfo);
 
+            ctx.commandBuffer.bindGraphicsPipeline(&pipeline);
+            ctx.commandBuffer.draw(3);
+
             ctx.commandBuffer.endRenderPass();
         }
         ctx.commandBuffer.end();
