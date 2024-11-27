@@ -16,6 +16,7 @@ const VulkanDevice = vulkan.VulkanDevice;
 const VulkanSurface = vulkan.VulkanSurface;
 const VulkanFence = vulkan.VulkanFence;
 const VulkanSemaphore = vulkan.VulkanSemaphore;
+const VulkanFramebuffer = vulkan.VulkanFramebuffer;
 
 const Window = core.Window;
 
@@ -33,7 +34,13 @@ pub const VulkanSwapchain = struct {
     colorSpace: c.VkColorSpaceKHR,
     allocator: Allocator,
 
-    pub fn new(device: *const VulkanDevice, surface: *const VulkanSurface, usage: c.VkImageUsageFlags, allocator: Allocator) !VulkanSwapchain {
+    pub fn new(
+        device: *const VulkanDevice,
+        surface: *const VulkanSurface,
+        usage: c.VkImageUsageFlags,
+        oldSwapchain: ?*const VulkanSwapchain,
+        allocator: Allocator,
+    ) !VulkanSwapchain {
         var supportsPresent: c.VkBool32 = 0;
         vkCheck(c.vkGetPhysicalDeviceSurfaceSupportKHR(device.physicalDevice, device.graphicsQueue.familyIndex, surface.handle, &supportsPresent));
 
@@ -70,6 +77,9 @@ pub const VulkanSwapchain = struct {
         createInfo.preTransform = c.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
         createInfo.compositeAlpha = c.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
         createInfo.presentMode = c.VK_PRESENT_MODE_FIFO_KHR;
+
+        const oldSwapchainHandle: c.VkSwapchainKHR = if (oldSwapchain) |v| v.handle else null;
+        createInfo.oldSwapchain = oldSwapchainHandle;
 
         var swapchain: c.VkSwapchainKHR = undefined;
         switch (c.vkCreateSwapchainKHR(device.handle, &createInfo, null, &swapchain)) {

@@ -32,8 +32,6 @@ pub const VulkanPipeline = struct {
         vertPath: []const u8,
         fragPath: []const u8,
         renderPass: *const VulkanRenderPass,
-        width: u32,
-        height: u32,
         allocator: Allocator,
     ) !VulkanPipeline {
         var vertModule = try VulkanShaderModule.new(device, vertPath, allocator);
@@ -65,20 +63,20 @@ pub const VulkanPipeline = struct {
 
         var viewportState = c.VkPipelineViewportStateCreateInfo{};
         viewportState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        const viewport = c.VkViewport{
-            .x = 0.0,
-            .y = 0.0,
-            .width = @floatFromInt(width),
-            .height = @floatFromInt(height),
-        };
         viewportState.viewportCount = 1;
-        viewportState.pViewports = &viewport;
-        const scissor = c.VkRect2D{
-            .offset = .{ .x = 0, .y = 0 },
-            .extent = .{ .width = width, .height = height },
-        };
+        // const viewport = c.VkViewport{
+        //     .x = 0.0,
+        //     .y = 0.0,
+        //     .width = @floatFromInt(width),
+        //     .height = @floatFromInt(height),
+        // };
+        // viewportState.pViewports = &viewport;
         viewportState.scissorCount = 1;
-        viewportState.pScissors = &scissor;
+        // const scissor = c.VkRect2D{
+        //     .offset = .{ .x = 0, .y = 0 },
+        //     .extent = .{ .width = width, .height = height },
+        // };
+        // viewportState.pScissors = &scissor;
 
         var rasterizationState = c.VkPipelineRasterizationStateCreateInfo{};
         rasterizationState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -96,6 +94,12 @@ pub const VulkanPipeline = struct {
         colorBlendState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlendState.attachmentCount = 1;
         colorBlendState.pAttachments = &colorBlendAttachment;
+
+        var dynamicState = c.VkPipelineDynamicStateCreateInfo{};
+        dynamicState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        const dynamicStates = &[_]u32{ c.VK_DYNAMIC_STATE_VIEWPORT, c.VK_DYNAMIC_STATE_SCISSOR };
+        dynamicState.dynamicStateCount = @intCast(dynamicStates.len);
+        dynamicState.pDynamicStates = dynamicStates;
 
         var pipelineLayout: c.VkPipelineLayout = undefined;
         {
@@ -123,6 +127,7 @@ pub const VulkanPipeline = struct {
             createInfo.pRasterizationState = &rasterizationState;
             createInfo.pMultisampleState = &multisampleState;
             createInfo.pColorBlendState = &colorBlendState;
+            createInfo.pDynamicState = &dynamicState;
             createInfo.layout = pipelineLayout;
             createInfo.renderPass = renderPass.handle;
             createInfo.subpass = 0;

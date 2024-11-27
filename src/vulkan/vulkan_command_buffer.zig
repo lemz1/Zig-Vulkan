@@ -78,4 +78,22 @@ pub const VulkanCommandBuffer = struct {
     pub fn draw(self: *const VulkanCommandBuffer, vertexCount: u32) void {
         c.vkCmdDraw(self.handle, vertexCount, 1, 0, 0);
     }
+
+    pub fn setViewport(self: *const VulkanCommandBuffer, width: f32, height: f32) void {
+        const viewport = c.VkViewport{
+            .x = 0.0,
+            .y = 0.0,
+            .width = width,
+            .height = height,
+        };
+        c.vkCmdSetViewport(self.handle, 0, 1, &viewport);
+    }
+
+    pub fn setScissor(self: *const VulkanCommandBuffer, width: u32, height: u32) void {
+        const scissor = c.VkRect2D{
+            .offset = .{ .x = 0, .y = 0 },
+            .extent = .{ .width = width, .height = height },
+        };
+        c.vkCmdSetScissor(self.handle, 0, 1, &scissor);
+    }
 };

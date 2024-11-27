@@ -67,7 +67,7 @@ pub const VulkanContext = struct {
         const instance = try VulkanInstance.new(enableValidationLayers, @intCast(validationLayers.len), validationLayers.ptr, instanceExtensionsCount, instanceExtensions, allocator);
         const device = try VulkanDevice.new(&instance, @intCast(deviceExtensions.len), deviceExtensions.ptr, allocator);
         const surface = try VulkanSurface.new(&instance, window);
-        const swapchain = try VulkanSwapchain.new(&device, &surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, allocator);
+        const swapchain = try VulkanSwapchain.new(&device, &surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, null, allocator);
         const renderPass = try VulkanRenderPass.new(&device, swapchain.format);
 
         const framebuffers = try allocator.alloc(VulkanFramebuffer, swapchain.images.len);
@@ -140,5 +140,39 @@ pub const VulkanContext = struct {
         self.allocator.free(self.commandBuffers);
         self.allocator.free(self.commandPools);
         self.allocator.free(self.framebuffers);
+    }
+
+    pub fn recreateSwapchain(self: *VulkanContext) !void {
+        var surfaceCapabilities: c.VkSurfaceCapabilitiesKHR = undefined;
+        vkCheck(c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(self.device.physicalDevice, self.surface.handle, &surfaceCapabilities));
+        if (surfaceCapabilities.currentExtent.width == 0 or surfaceCapabilities.currentExtent.height == 0) {
+            return;
+        }
+
+        self.device.wait();
+
+        var oldSwapchain = self.swapchain;
+        self.swapchain = try VulkanSwapchain.new(&self.device, &self.surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &oldSwapchain, self.allocator);
+        oldSwapchain.destroy(&self.device);
+
+        self.renderPass.destroy(&self.device);
+        self.renderPass = try VulkanRenderPass.new(&self.device, self.swapchain.format);
+
+        for (self.framebuffers) |*framebuffer| {
+            framebuffer.destroy(&self.device);
+        }
+        self.allocator.free(self.framebuffers);
+        self.framebuffers = try self.allocator.alloc(VulkanFramebuffer, self.swapchain.images.len);
+
+        for (0..self.framebuffers.len) |i| {
+            self.framebuffers[i] = try VulkanFramebuffer.new(
+                &self.device,
+                &self.renderPass,
+                1,
+                &self.swapchain.imageViews[i],
+                self.swapchain.width,
+                self.swapchain.height,
+            );
+        }
     }
 };

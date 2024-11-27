@@ -31,8 +31,6 @@ pub fn main() !void {
         "assets/shaders/simple_vert.spv",
         "assets/shaders/simple_frag.spv",
         &ctx.renderPass,
-        ctx.swapchain.width,
-        ctx.swapchain.height,
         allocator,
     );
     defer pipeline.destroy(&ctx.device);
@@ -50,15 +48,33 @@ pub fn main() !void {
         const releaseSemaphore = ctx.releaseSemaphores[frameIndex];
 
         fence.wait(&ctx.device);
-        fence.reset(&ctx.device);
 
         var imageIndex: u32 = 0;
-        _ = ctx.swapchain.acquireNextImage(&ctx.device, &acquireSemaphore, null, &imageIndex);
+        {
+            const result = ctx.swapchain.acquireNextImage(&ctx.device, &acquireSemaphore, null, &imageIndex);
+            switch (result) {
+                c.VK_ERROR_OUT_OF_DATE_KHR, c.VK_SUBOPTIMAL_KHR => {
+                    ctx.recreateSwapchain() catch {
+                        std.debug.print("[Vulkan] could not recreate swapchain\n", .{});
+                    };
+
+                    continue;
+                },
+                else => {
+                    vkCheck(result);
+                },
+            }
+        }
+
+        fence.reset(&ctx.device);
 
         commandPool.reset(&ctx.device);
 
         commandBuffer.begin();
         {
+            commandBuffer.setViewport(@floatFromInt(ctx.swapchain.width), @floatFromInt(ctx.swapchain.height));
+            commandBuffer.setScissor(ctx.swapchain.width, ctx.swapchain.height);
+
             var clearValue = c.VkClearValue{
                 .color = .{
                     .float32 = [4]f32{ 0.1, 0.1, 0.1, 1.0 },
@@ -103,7 +119,19 @@ pub fn main() !void {
         presentInfo.pImageIndices = &imageIndex;
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = &releaseSemaphore.handle;
-        _ = ctx.device.graphicsQueue.present(&presentInfo);
+        {
+            const result = ctx.device.graphicsQueue.present(&presentInfo);
+            switch (result) {
+                c.VK_ERROR_OUT_OF_DATE_KHR, c.VK_SUBOPTIMAL_KHR => {
+                    ctx.recreateSwapchain() catch {
+                        std.debug.print("[Vulkan] could not recreate swapchain\n", .{});
+                    };
+                },
+                else => {
+                    vkCheck(result);
+                },
+            }
+        }
 
         frameIndex = (frameIndex + 1) % ctx.framesInFlight;
     }
