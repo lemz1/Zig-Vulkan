@@ -30,6 +30,7 @@ pub fn build(b: *std.Build) void {
 
     addGlfw(exe, b, target, optimize);
     addVulkan(exe, b, target, optimize, allocator);
+    addZMath(exe, b, target, optimize);
 
     b.installDirectory(.{
         .source_dir = b.path("assets"),
@@ -187,4 +188,9 @@ fn addVulkan(compile: *std.Build.Step.Compile, _: *std.Build, _: std.Build.Resol
 
     compile.addLibraryPath(.{ .cwd_relative = vulkanLib });
     compile.linkSystemLibrary("vulkan-1");
+}
+
+fn addZMath(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
+    const zmath = b.dependency("zmath", .{});
+    compile.root_module.addImport("zmath", zmath.module("root"));
 }
