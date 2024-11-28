@@ -109,4 +109,8 @@ pub const VulkanCommandBuffer = struct {
         };
         c.vkCmdSetScissor(self.handle, 0, 1, &scissor);
     }
+
+    pub fn copyBuffer(self: *const VulkanCommandBuffer, srcBuffer: *const VulkanBuffer, dstBuffer: *const VulkanBuffer, region: c.VkBufferCopy) void {
+        c.vkCmdCopyBuffer(self.handle, srcBuffer.handle, dstBuffer.handle, 1, &region);
+    }
 };

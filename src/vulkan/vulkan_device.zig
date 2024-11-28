@@ -15,6 +15,7 @@ const VulkanQueue = vulkan.VulkanQueue;
 
 const VulkanDeviceError = error{
     CreateDevice,
+    NoGPUsFound,
 };
 
 pub const VulkanDevice = struct {
@@ -30,10 +31,48 @@ pub const VulkanDevice = struct {
         defer allocator.free(physicalDevices);
         vkCheck(c.vkEnumeratePhysicalDevices(instance.handle, &deviceCount, physicalDevices.ptr));
 
-        const physicalDevice = physicalDevices[0];
+        if (physicalDevices.len == 0) {
+            return VulkanDeviceError.NoGPUsFound;
+        }
 
+        std.debug.print("Found {d} GPU{s}\n", .{ physicalDevices.len, if (physicalDevices.len > 1) "s" else "" });
+
+        var physicalDevice: c.VkPhysicalDevice = undefined;
         var physicalDeviceProperties: c.VkPhysicalDeviceProperties = undefined;
-        c.vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+
+        for (0..physicalDevices.len) |i| {
+            var properties: c.VkPhysicalDeviceProperties = undefined;
+            c.vkGetPhysicalDeviceProperties(physicalDevices[i], &properties);
+
+            if (i == 0) {
+                physicalDevice = physicalDevices[i];
+                physicalDeviceProperties = properties;
+            }
+
+            const deviceNameLength = std.mem.len(@as([*c]const u8, &properties.deviceName));
+            std.debug.print("  GPU {d}: {s}\n", .{
+                i,
+                properties.deviceName[0..deviceNameLength],
+            });
+        }
+
+        const deviceNameLength = std.mem.len(@as([*c]const u8, &physicalDeviceProperties.deviceName));
+        std.debug.print("Selected GPU: {s}\n", .{physicalDeviceProperties.deviceName[0..deviceNameLength]});
+
+        {
+            var properties: c.VkPhysicalDeviceMemoryProperties = undefined;
+            c.vkGetPhysicalDeviceMemoryProperties(physicalDevice, &properties);
+
+            std.debug.print("  Found {d} Memory Heap{s}\n", .{ properties.memoryHeapCount, if (properties.memoryHeapCount > 1) "s" else "" });
+
+            for (0..properties.memoryHeapCount) |i| {
+                const size: f32 = @as(f32, @floatFromInt(properties.memoryHeaps[i].size)) / 1000.0 / 1000.0;
+                const isDeviceLocal = (properties.memoryHeaps[i].flags & c.VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0;
+                std.debug.print("  Heap {d}:\n", .{i});
+                std.debug.print("    Size: {d:.2} Mb\n", .{size});
+                std.debug.print("    Device Local: {}\n", .{isDeviceLocal});
+            }
+        }
 
         var enabledFeatures = c.VkPhysicalDeviceFeatures{};
 

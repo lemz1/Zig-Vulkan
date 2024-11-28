@@ -33,4 +33,8 @@ pub const VulkanQueue = struct {
     pub fn present(self: *const VulkanQueue, presentInfo: *const c.VkPresentInfoKHR) c.VkResult {
         return c.vkQueuePresentKHR(self.queue, presentInfo);
     }
+
+    pub fn wait(self: *const VulkanQueue) void {
+        vkCheck(c.vkQueueWaitIdle(self.queue));
+    }
 };

@@ -52,26 +52,30 @@ pub const Application = struct {
         var vertexBuffer = if (VulkanBuffer.new(
             &self.ctx.device,
             @sizeOf(f32) * vertices.len,
-            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         )) |v| v else |_| return;
         defer vertexBuffer.destroy(&self.ctx.device);
 
-        vertexBuffer.mapMemory(&self.ctx.device, vertices);
-        vertexBuffer.unmapMemory(&self.ctx.device);
+        vertexBuffer.uploadData(&self.ctx.device, vertices) catch {
+            std.debug.print("Failed to upload data to Vertex Buffer\n", .{});
+            return;
+        };
 
         const indices: []const u32 = &.{ 0, 1, 2, 1, 3, 2 };
 
         var indexBuffer = if (VulkanBuffer.new(
             &self.ctx.device,
             @sizeOf(f32) * vertices.len,
-            c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+            c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         )) |v| v else |_| return;
         defer indexBuffer.destroy(&self.ctx.device);
 
-        indexBuffer.mapMemory(&self.ctx.device, indices);
-        indexBuffer.unmapMemory(&self.ctx.device);
+        indexBuffer.uploadData(&self.ctx.device, indices) catch {
+            std.debug.print("Failed to upload data to Index Buffer\n", .{});
+            return;
+        };
 
         var vertexBindingDescriptions = [1]c.VkVertexInputBindingDescription{undefined};
         vertexBindingDescriptions[0].binding = 0;
