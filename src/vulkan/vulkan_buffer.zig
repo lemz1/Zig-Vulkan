@@ -33,6 +33,9 @@ pub const VulkanBuffer = struct {
     handle: c.VkBuffer,
     memory: c.VkDeviceMemory,
 
+    uploadCmdPool: VulkanCommandPool,
+    uploadCmdBuffer: VulkanCommandBuffer,
+
     pub fn new(device: *const VulkanDevice, size: u64, usage: c.VkBufferUsageFlags, memoryProperties: c.VkMemoryPropertyFlags) !VulkanBuffer {
         var createInfo = c.VkBufferCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -69,13 +72,21 @@ pub const VulkanBuffer = struct {
 
         vkCheck(c.vkBindBufferMemory(device.handle, buffer, memory, 0));
 
+        const uploadCmdPool = try VulkanCommandPool.new(device, device.graphicsQueue.familyIndex);
+        const uploadCmdBuffer = try VulkanCommandBuffer.new(device, &uploadCmdPool);
+
         return .{
             .handle = buffer,
             .memory = memory,
+
+            .uploadCmdPool = uploadCmdPool,
+            .uploadCmdBuffer = uploadCmdBuffer,
         };
     }
 
     pub fn destroy(self: *VulkanBuffer, device: *const VulkanDevice) void {
+        self.uploadCmdBuffer.destroy(device, &self.uploadCmdPool);
+        self.uploadCmdPool.destroy(device);
         c.vkFreeMemory(device.handle, self.memory, null);
         c.vkDestroyBuffer(device.handle, self.handle, null);
     }
@@ -97,12 +108,6 @@ pub const VulkanBuffer = struct {
             _ = memcpy(mapped, data.ptr, size);
             c.vkUnmapMemory(device.handle, self.memory);
         } else {
-            var commandPool = try VulkanCommandPool.new(device, device.graphicsQueue.familyIndex);
-            defer commandPool.destroy(device);
-
-            var commandBuffer = try VulkanCommandBuffer.new(device, &commandPool);
-            defer commandBuffer.destroy(device, &commandPool);
-
             var stagingBuffer = try VulkanBuffer.new(
                 device,
                 size,
@@ -116,18 +121,20 @@ pub const VulkanBuffer = struct {
             _ = memcpy(mapped, data.ptr, size);
             c.vkUnmapMemory(device.handle, stagingBuffer.memory);
 
-            commandBuffer.begin();
-            commandBuffer.copyBuffer(&stagingBuffer, self, .{
+            self.uploadCmdPool.reset(device);
+
+            self.uploadCmdBuffer.begin();
+            self.uploadCmdBuffer.copyBuffer(&stagingBuffer, self, .{
                 .srcOffset = 0,
                 .dstOffset = 0,
                 .size = size,
             });
-            commandBuffer.end();
+            self.uploadCmdBuffer.end();
 
             var submitInfo = c.VkSubmitInfo{};
             submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
             submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &commandBuffer.handle;
+            submitInfo.pCommandBuffers = &self.uploadCmdBuffer.handle;
             device.graphicsQueue.submit(&submitInfo, null);
             device.graphicsQueue.wait();
         }

@@ -49,7 +49,7 @@ pub const VulkanCommandPool = struct {
         c.vkDestroyCommandPool(device.handle, self.handle, null);
     }
 
-    pub fn reset(self: *const VulkanCommandPool, device: *VulkanDevice) void {
+    pub fn reset(self: *const VulkanCommandPool, device: *const VulkanDevice) void {
         vkCheck(c.vkResetCommandPool(device.handle, self.handle, 0));
     }
 };
