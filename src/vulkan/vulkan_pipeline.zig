@@ -32,6 +32,8 @@ pub const VulkanPipeline = struct {
         vertPath: []const u8,
         fragPath: []const u8,
         renderPass: *const VulkanRenderPass,
+        attributeDescriptions: []c.VkVertexInputAttributeDescription,
+        bindingDescriptions: []c.VkVertexInputBindingDescription,
         allocator: Allocator,
     ) !VulkanPipeline {
         var vertModule = try VulkanShaderModule.new(device, vertPath, allocator);
@@ -56,6 +58,10 @@ pub const VulkanPipeline = struct {
 
         var vertexInputState = c.VkPipelineVertexInputStateCreateInfo{};
         vertexInputState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputState.vertexBindingDescriptionCount = @intCast(bindingDescriptions.len);
+        vertexInputState.pVertexBindingDescriptions = bindingDescriptions.ptr;
+        vertexInputState.vertexAttributeDescriptionCount = @intCast(attributeDescriptions.len);
+        vertexInputState.pVertexAttributeDescriptions = attributeDescriptions.ptr;
 
         var inputAssemblyState = c.VkPipelineInputAssemblyStateCreateInfo{};
         inputAssemblyState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;

@@ -3,6 +3,8 @@ const Allocator = std.mem.Allocator;
 
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
+const memcpy = @cImport(@cInclude("memory.h")).memcpy;
+
 const vkCheck = @import("../vulkan/util.zig").vkCheck;
 
 const core = @import("../core.zig");
@@ -10,6 +12,7 @@ const vulkan = @import("../vulkan.zig");
 
 const VulkanContext = vulkan.VulkanContext;
 const VulkanPipeline = vulkan.VulkanPipeline;
+const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanCreateOptions = vulkan.VulkanCreateOptions;
 const GLFW = core.GLFW;
 const Window = core.Window;
@@ -46,11 +49,39 @@ pub const Application = struct {
     }
 
     pub fn run(self: *Application) void {
+        const vertices = &[_]f32{ 0.0, -0.5, 0.5, 0.5, -0.5, 0.5 };
+
+        var vertexBuffer = if (VulkanBuffer.new(
+            &self.ctx.device,
+            @sizeOf(f32) * vertices.len,
+            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+        )) |v| v else |_| return;
+        defer vertexBuffer.destroy(&self.ctx.device);
+
+        var data: ?*anyopaque = undefined;
+        vkCheck(c.vkMapMemory(self.ctx.device.handle, vertexBuffer.memory, 0, @sizeOf(f32) * vertices.len, 0, &data));
+        _ = memcpy(data, vertices, @sizeOf(f32) * vertices.len);
+        c.vkUnmapMemory(self.ctx.device.handle, vertexBuffer.memory);
+
+        var vertexBindingDescriptions = [1]c.VkVertexInputBindingDescription{undefined};
+        vertexBindingDescriptions[0].binding = 0;
+        vertexBindingDescriptions[0].inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX;
+        vertexBindingDescriptions[0].stride = @sizeOf(f32) * 2;
+
+        var vertexAttributeDescriptions = [1]c.VkVertexInputAttributeDescription{undefined};
+        vertexAttributeDescriptions[0].binding = 0;
+        vertexAttributeDescriptions[0].location = 0;
+        vertexAttributeDescriptions[0].format = c.VK_FORMAT_R32G32_SFLOAT;
+        vertexAttributeDescriptions[0].offset = 0;
+
         var pipeline = if (VulkanPipeline.new(
             &self.ctx.device,
-            "assets/shaders/simple_vert.spv",
-            "assets/shaders/simple_frag.spv",
+            "assets/shaders/buffer_vert.spv",
+            "assets/shaders/buffer_frag.spv",
             &self.ctx.renderPass,
+            &vertexAttributeDescriptions,
+            &vertexBindingDescriptions,
             self.allocator,
         )) |v| v else |_| return;
         defer pipeline.destroy(&self.ctx.device);
@@ -114,6 +145,8 @@ pub const Application = struct {
                 commandBuffer.beginRenderPass(&beginInfo);
 
                 commandBuffer.bindGraphicsPipeline(&pipeline);
+                const offset: c.VkDeviceSize = undefined;
+                c.vkCmdBindVertexBuffers(commandBuffer.handle, 0, 1, &vertexBuffer.handle, &offset);
                 commandBuffer.draw(3);
 
                 commandBuffer.endRenderPass();
