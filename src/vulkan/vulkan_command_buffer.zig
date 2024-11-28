@@ -17,6 +17,7 @@ const VulkanSurface = vulkan.VulkanSurface;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanPipeline = vulkan.VulkanPipeline;
+const VulkanBuffer = vulkan.VulkanBuffer;
 
 const Window = core.Window;
 
@@ -75,8 +76,20 @@ pub const VulkanCommandBuffer = struct {
         c.vkCmdBindPipeline(self.handle, c.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
     }
 
+    pub fn bindVertexBuffer(self: *const VulkanCommandBuffer, vertexBuffer: *const VulkanBuffer, offset: c.VkDeviceSize) void {
+        c.vkCmdBindVertexBuffers(self.handle, 0, 1, &vertexBuffer.handle, &offset);
+    }
+
+    pub fn bindIndexBuffer(self: *const VulkanCommandBuffer, indexBuffer: *const VulkanBuffer, offset: c.VkDeviceSize) void {
+        c.vkCmdBindIndexBuffer(self.handle, indexBuffer.handle, offset, c.VK_INDEX_TYPE_UINT32);
+    }
+
     pub fn draw(self: *const VulkanCommandBuffer, vertexCount: u32) void {
         c.vkCmdDraw(self.handle, vertexCount, 1, 0, 0);
+    }
+
+    pub fn drawIndexed(self: *const VulkanCommandBuffer, indexCount: u32) void {
+        c.vkCmdDrawIndexed(self.handle, indexCount, 1, 0, 0, 0);
     }
 
     pub fn setViewport(self: *const VulkanCommandBuffer, width: f32, height: f32) void {
