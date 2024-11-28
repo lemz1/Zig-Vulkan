@@ -24,6 +24,8 @@ pub const VulkanDevice = struct {
     physicalDeviceProperties: c.VkPhysicalDeviceProperties,
     graphicsQueue: VulkanQueue,
 
+    hasResizableBAR: bool,
+
     pub fn new(instance: *const VulkanInstance, deviceExtensionsCount: u32, deviceExtensions: [*c]const [*c]const u8, allocator: Allocator) !VulkanDevice {
         var deviceCount: u32 = 0;
         vkCheck(c.vkEnumeratePhysicalDevices(instance.handle, &deviceCount, null));
@@ -59,19 +61,21 @@ pub const VulkanDevice = struct {
         const deviceNameLength = std.mem.len(@as([*c]const u8, &physicalDeviceProperties.deviceName));
         std.debug.print("Selected GPU: {s}\n", .{physicalDeviceProperties.deviceName[0..deviceNameLength]});
 
-        {
-            var properties: c.VkPhysicalDeviceMemoryProperties = undefined;
-            c.vkGetPhysicalDeviceMemoryProperties(physicalDevice, &properties);
+        var memoryProperties: c.VkPhysicalDeviceMemoryProperties = undefined;
+        c.vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
 
-            std.debug.print("  Found {d} Memory Heap{s}\n", .{ properties.memoryHeapCount, if (properties.memoryHeapCount > 1) "s" else "" });
+        const hasResizableBAR = memoryProperties.memoryHeapCount < 3;
 
-            for (0..properties.memoryHeapCount) |i| {
-                const size: f32 = @as(f32, @floatFromInt(properties.memoryHeaps[i].size)) / 1000.0 / 1000.0;
-                const isDeviceLocal = (properties.memoryHeaps[i].flags & c.VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0;
-                std.debug.print("  Heap {d}:\n", .{i});
-                std.debug.print("    Size: {d:.2} Mb\n", .{size});
-                std.debug.print("    Device Local: {}\n", .{isDeviceLocal});
-            }
+        std.debug.print("  {s} Resizable BAR\n", .{if (hasResizableBAR) "Has" else "Doesn't have"});
+
+        std.debug.print("  Found {d} Memory Heap{s}\n", .{ memoryProperties.memoryHeapCount, if (memoryProperties.memoryHeapCount > 1) "s" else "" });
+
+        for (0..memoryProperties.memoryHeapCount) |i| {
+            const size: f32 = @as(f32, @floatFromInt(memoryProperties.memoryHeaps[i].size)) / 1000.0 / 1000.0;
+            const isDeviceLocal = (memoryProperties.memoryHeaps[i].flags & c.VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0;
+            std.debug.print("  Heap {d}:\n", .{i});
+            std.debug.print("    Size: {d:.2} Mb\n", .{size});
+            std.debug.print("    Device Local: {}\n", .{isDeviceLocal});
         }
 
         var enabledFeatures = c.VkPhysicalDeviceFeatures{};
@@ -124,6 +128,8 @@ pub const VulkanDevice = struct {
             .physicalDevice = physicalDevice,
             .physicalDeviceProperties = physicalDeviceProperties,
             .graphicsQueue = VulkanQueue.new(graphicsQueue, graphicsFamilyIndex),
+
+            .hasResizableBAR = hasResizableBAR,
         };
     }
 

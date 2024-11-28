@@ -91,44 +91,46 @@ pub const VulkanBuffer = struct {
 
         const size: c.VkDeviceSize = data.len * @sizeOf(typeInfo.pointer.child);
 
-        // var memData: ?*anyopaque = undefined;
-        // vkCheck(c.vkMapMemory(device.handle, self.memory, 0, size, 0, &memData));
-        // _ = memcpy(memData, data.ptr, size);
-        // c.vkUnmapMemory(device.handle, self.memory);
+        if (device.hasResizableBAR) {
+            var mapped: ?*anyopaque = undefined;
+            vkCheck(c.vkMapMemory(device.handle, self.memory, 0, size, 0, &mapped));
+            _ = memcpy(mapped, data.ptr, size);
+            c.vkUnmapMemory(device.handle, self.memory);
+        } else {
+            var commandPool = try VulkanCommandPool.new(device, device.graphicsQueue.familyIndex);
+            defer commandPool.destroy(device);
 
-        var commandPool = try VulkanCommandPool.new(device, device.graphicsQueue.familyIndex);
-        defer commandPool.destroy(device);
+            var commandBuffer = try VulkanCommandBuffer.new(device, &commandPool);
+            defer commandBuffer.destroy(device, &commandPool);
 
-        var commandBuffer = try VulkanCommandBuffer.new(device, &commandPool);
-        defer commandBuffer.destroy(device, &commandPool);
+            var stagingBuffer = try VulkanBuffer.new(
+                device,
+                size,
+                c.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            );
+            defer stagingBuffer.destroy(device);
 
-        var stagingBuffer = try VulkanBuffer.new(
-            device,
-            size,
-            c.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        );
-        defer stagingBuffer.destroy(device);
+            var mapped: ?*anyopaque = undefined;
+            vkCheck(c.vkMapMemory(device.handle, stagingBuffer.memory, 0, size, 0, &mapped));
+            _ = memcpy(mapped, data.ptr, size);
+            c.vkUnmapMemory(device.handle, stagingBuffer.memory);
 
-        var mapped: ?*anyopaque = undefined;
-        vkCheck(c.vkMapMemory(device.handle, stagingBuffer.memory, 0, size, 0, &mapped));
-        _ = memcpy(mapped, data.ptr, size);
-        c.vkUnmapMemory(device.handle, stagingBuffer.memory);
+            commandBuffer.begin();
+            commandBuffer.copyBuffer(&stagingBuffer, self, .{
+                .srcOffset = 0,
+                .dstOffset = 0,
+                .size = size,
+            });
+            commandBuffer.end();
 
-        commandBuffer.begin();
-        commandBuffer.copyBuffer(&stagingBuffer, self, .{
-            .srcOffset = 0,
-            .dstOffset = 0,
-            .size = size,
-        });
-        commandBuffer.end();
-
-        var submitInfo = c.VkSubmitInfo{};
-        submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        submitInfo.commandBufferCount = 1;
-        submitInfo.pCommandBuffers = &commandBuffer.handle;
-        device.graphicsQueue.submit(&submitInfo, null);
-        device.graphicsQueue.wait();
+            var submitInfo = c.VkSubmitInfo{};
+            submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &commandBuffer.handle;
+            device.graphicsQueue.submit(&submitInfo, null);
+            device.graphicsQueue.wait();
+        }
     }
 
     fn findMemoryType(device: *const VulkanDevice, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !u32 {
