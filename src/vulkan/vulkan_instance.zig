@@ -40,7 +40,7 @@ pub const VulkanInstance = struct {
             }
 
             if (!found) {
-                std.debug.print("could not find validation layer: {s}\n", .{validationLayers[i]});
+                std.debug.print("Could not find Validation Layer: {s}\n", .{validationLayers[i]});
             }
         }
 
@@ -66,7 +66,7 @@ pub const VulkanInstance = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create vulkan instance\n", .{});
+                std.debug.print("[Vulkan] Could not create Instance\n", .{});
                 return VulkanInstanceError.CreateInstance;
             },
         }

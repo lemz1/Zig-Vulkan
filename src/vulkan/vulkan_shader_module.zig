@@ -45,7 +45,7 @@ pub const VulkanShaderModule = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create shader module\n", .{});
+                std.debug.print("[Vulkan] Could not create Shader Module\n", .{});
                 return VulkanShaderModuleError.CreateShaderModule;
             },
         }

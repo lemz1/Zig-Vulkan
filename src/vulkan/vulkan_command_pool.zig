@@ -39,7 +39,7 @@ pub const VulkanCommandPool = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create command pool\n", .{});
+                std.debug.print("[Vulkan] Could not create Command Pool\n", .{});
                 return VulkanCommandPoolError.CreateCommandPool;
             },
         }

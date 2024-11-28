@@ -54,7 +54,7 @@ pub const VulkanRenderPass = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create render pass\n", .{});
+                std.debug.print("[Vulkan] Could not create Render Pass\n", .{});
                 return VulkanRenderPassError.CreateRenderPass;
             },
         }

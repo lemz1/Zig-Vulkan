@@ -32,7 +32,7 @@ pub const VulkanSurface = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create surface\n", .{});
+                std.debug.print("[Vulkan] Could not create Surface\n", .{});
                 return VulkanSurfaceError.CreateSurface;
             },
         }

@@ -43,7 +43,7 @@ pub const VulkanBuffer = struct {
         switch (c.vkCreateBuffer(device.handle, &createInfo, null, &buffer)) {
             c.VK_SUCCESS => {},
             else => {
-                std.debug.print("[Vulkan] could not create command buffer\n", .{});
+                std.debug.print("[Vulkan] Could not create Buffer\n", .{});
                 return VulkanBufferError.CreateBuffer;
             },
         }
@@ -62,7 +62,7 @@ pub const VulkanBuffer = struct {
         switch (c.vkAllocateMemory(device.handle, &allocateInfo, null, &memory)) {
             c.VK_SUCCESS => {},
             else => {
-                std.debug.print("[Vulkan] could not create command buffer\n", .{});
+                std.debug.print("[Vulkan] Could not allocate Memory\n", .{});
                 return VulkanBufferError.CreateBuffer;
             },
         }
@@ -85,7 +85,7 @@ pub const VulkanBuffer = struct {
 
         comptime {
             if (typeInfo != .pointer or typeInfo.pointer.size != .Slice) {
-                @compileError("data is not a slice\n");
+                @compileError("Data is not a Slice\n");
             }
         }
 

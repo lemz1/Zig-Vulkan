@@ -115,7 +115,7 @@ pub const VulkanPipeline = struct {
             switch (c.vkCreatePipelineLayout(device.handle, &createInfo, null, &pipelineLayout)) {
                 c.VK_SUCCESS => {},
                 else => {
-                    std.debug.print("[Vulkan] could not create pipeline layout\n", .{});
+                    std.debug.print("[Vulkan] Could not create Pipeline Layout\n", .{});
                     return VulkanPipelineError.CreatePipelineLayout;
                 },
             }
@@ -146,7 +146,7 @@ pub const VulkanPipeline = struct {
                     };
                 },
                 else => {
-                    std.debug.print("[Vulkan] could not create pipeline\n", .{});
+                    std.debug.print("[Vulkan] Could not create Pipeline\n", .{});
                     return VulkanPipelineError.CreatePipeline;
                 },
             }

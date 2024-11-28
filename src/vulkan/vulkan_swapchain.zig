@@ -85,7 +85,7 @@ pub const VulkanSwapchain = struct {
         switch (c.vkCreateSwapchainKHR(device.handle, &createInfo, null, &swapchain)) {
             c.VK_SUCCESS => {},
             else => {
-                std.debug.print("[Vulkan] could not create swapchain\n", .{});
+                std.debug.print("[Vulkan] Could not create Swapchain\n", .{});
                 return VulkanSwapchainError.CreateSwapchain;
             },
         }

@@ -111,7 +111,7 @@ pub const VulkanDevice = struct {
         switch (c.vkCreateDevice(physicalDevice, &createInfo, null, &device)) {
             c.VK_SUCCESS => {},
             else => {
-                std.debug.print("[Vulkan] could not create device\n", .{});
+                std.debug.print("[Vulkan] Could not Create Device\n", .{});
                 return VulkanDeviceError.CreateDevice;
             },
         }

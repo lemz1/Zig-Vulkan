@@ -47,7 +47,7 @@ pub const VulkanFramebuffer = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create framebuffer\n", .{});
+                std.debug.print("[Vulkan] Could not create Framebuffer\n", .{});
                 return VulkanFramebufferError.CreateFramebuffer;
             },
         }

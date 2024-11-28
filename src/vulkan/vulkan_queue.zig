@@ -14,12 +14,12 @@ const vulkan = @import("../vulkan.zig");
 const VulkanFence = vulkan.VulkanFence;
 
 pub const VulkanQueue = struct {
-    queue: c.VkQueue,
+    handle: c.VkQueue,
     familyIndex: u32,
 
     pub fn new(queue: c.VkQueue, familyIndex: u32) VulkanQueue {
         return .{
-            .queue = queue,
+            .handle = queue,
             .familyIndex = familyIndex,
         };
     }
@@ -27,14 +27,14 @@ pub const VulkanQueue = struct {
     pub fn submit(self: *const VulkanQueue, submitInfo: *const c.VkSubmitInfo, fence: ?*const VulkanFence) void {
         const fenceHandle: c.VkFence = if (fence) |v| v.handle else null;
 
-        vkCheck(c.vkQueueSubmit(self.queue, 1, submitInfo, fenceHandle));
+        vkCheck(c.vkQueueSubmit(self.handle, 1, submitInfo, fenceHandle));
     }
 
     pub fn present(self: *const VulkanQueue, presentInfo: *const c.VkPresentInfoKHR) c.VkResult {
-        return c.vkQueuePresentKHR(self.queue, presentInfo);
+        return c.vkQueuePresentKHR(self.handle, presentInfo);
     }
 
     pub fn wait(self: *const VulkanQueue) void {
-        vkCheck(c.vkQueueWaitIdle(self.queue));
+        vkCheck(c.vkQueueWaitIdle(self.handle));
     }
 };

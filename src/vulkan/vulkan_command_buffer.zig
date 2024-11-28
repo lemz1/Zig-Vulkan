@@ -43,7 +43,7 @@ pub const VulkanCommandBuffer = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create command buffer\n", .{});
+                std.debug.print("[Vulkan] Could not create Command Buffer\n", .{});
                 return VulkanCommandBufferError.CreateCommandBuffer;
             },
         }

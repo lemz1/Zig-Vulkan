@@ -119,7 +119,7 @@ pub const Application = struct {
                 switch (result) {
                     c.VK_ERROR_OUT_OF_DATE_KHR, c.VK_SUBOPTIMAL_KHR => {
                         self.ctx.recreateSwapchain() catch {
-                            std.debug.print("[Vulkan] could not recreate swapchain\n", .{});
+                            std.debug.print("[Vulkan] Could not recreate Swapchain\n", .{});
                         };
 
                         continue;
@@ -191,7 +191,7 @@ pub const Application = struct {
                 switch (result) {
                     c.VK_ERROR_OUT_OF_DATE_KHR, c.VK_SUBOPTIMAL_KHR => {
                         self.ctx.recreateSwapchain() catch {
-                            std.debug.print("[Vulkan] could not recreate swapchain\n", .{});
+                            std.debug.print("[Vulkan] Could not recreate Swapchain\n", .{});
                         };
                     },
                     else => {

@@ -38,7 +38,7 @@ pub const VulkanFence = struct {
                 };
             },
             else => {
-                std.debug.print("[Vulkan] could not create fence\n", .{});
+                std.debug.print("[Vulkan] Could not create Fence\n", .{});
                 return VulkanFenceError.CreateFence;
             },
         }
