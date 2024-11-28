@@ -1,10 +1,6 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}).init;
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
     const target = b.standardTargetOptions(.{});
 
     switch (target.result.os.tag) {
@@ -29,7 +25,7 @@ pub fn build(b: *std.Build) void {
     addPlatformLibs(exe, target);
 
     addGlfw(exe, b, target, optimize);
-    addVulkan(exe, b, target, optimize, allocator);
+    addVulkan(exe, b, target, optimize);
     addZMath(exe, b, target, optimize);
 
     b.installDirectory(.{
@@ -168,26 +164,23 @@ fn addGlfw(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.Re
     compile.linkLibrary(glfw);
 }
 
-fn addVulkan(compile: *std.Build.Step.Compile, _: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode, allocator: std.mem.Allocator) void {
-    const vulkanSDKPath = std.process.getEnvVarOwned(allocator, "VULKAN_SDK") catch {
+fn addVulkan(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
+    const vulkanSDKPath = std.process.getEnvVarOwned(b.allocator, "VULKAN_SDK") catch {
         @panic("could not find VULKAN_SDK environment variable\n");
     };
-    defer allocator.free(vulkanSDKPath);
 
-    const vulkanInclude = std.fs.path.join(allocator, &[_][]const u8{ vulkanSDKPath, "Include" }) catch {
+    const vulkanInclude = std.fmt.allocPrint(b.allocator, "{s}/Include", .{vulkanSDKPath}) catch {
         @panic("could not create vulkan include path");
     };
-    defer allocator.free(vulkanInclude);
 
-    const vulkanLib = std.fs.path.join(allocator, &[_][]const u8{ vulkanSDKPath, "Lib" }) catch {
+    const vulkanLib = std.fmt.allocPrint(b.allocator, "{s}/Lib", .{vulkanSDKPath}) catch {
         @panic("could not create vulkan lib path");
     };
-    defer allocator.free(vulkanLib);
 
     compile.addIncludePath(.{ .cwd_relative = vulkanInclude });
 
     compile.addLibraryPath(.{ .cwd_relative = vulkanLib });
-    compile.linkSystemLibrary("vulkan-1");
+    compile.linkSystemLibrary(if (target.result.os.tag == .windows) "vulkan-1" else "vulkan");
 }
 
 fn addZMath(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
