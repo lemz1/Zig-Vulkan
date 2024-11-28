@@ -6,8 +6,10 @@ pub fn build(b: *std.Build) void {
     switch (target.result.os.tag) {
         .windows, .macos, .linux => {},
         else => {
-            std.debug.print("unsupported operating system: {}\n", .{target.result.os});
-            return;
+            const message = std.fmt.allocPrint(b.allocator, "unsupported operating system: {}\n", .{target.result.os}) catch {
+                @panic("could not create error message");
+            };
+            @panic(message);
         },
     }
 
