@@ -57,14 +57,28 @@ pub const VulkanContext = struct {
             "VK_LAYER_KHRONOS_validation",
         };
 
-        var instanceExtensionsCount: u32 = 0;
-        const instanceExtensions = GLFW.instanceExtensions(&instanceExtensionsCount);
+        var glfwInstanceExtensionsCount: u32 = 0;
+        const glfwInstanceExtensions = GLFW.instanceExtensions(&glfwInstanceExtensionsCount);
+
+        const additionalInstanceExtensions: []const [*:0]const u8 = &[_][*:0]const u8{
+            c.VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+            c.VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME,
+        };
+
+        var instanceExtensions = try allocator.alloc([*:0]const u8, glfwInstanceExtensionsCount + additionalInstanceExtensions.len);
+        defer allocator.free(instanceExtensions);
+        for (0..glfwInstanceExtensionsCount) |i| {
+            instanceExtensions[i] = glfwInstanceExtensions[i];
+        }
+        for (0..additionalInstanceExtensions.len) |i| {
+            instanceExtensions[i + glfwInstanceExtensionsCount] = additionalInstanceExtensions[i];
+        }
 
         const deviceExtensions: []const [*:0]const u8 = &[_][*:0]const u8{
             c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         };
 
-        const instance = try VulkanInstance.new(enableValidationLayers, @intCast(validationLayers.len), validationLayers.ptr, instanceExtensionsCount, instanceExtensions, allocator);
+        const instance = try VulkanInstance.new(enableValidationLayers, @intCast(validationLayers.len), validationLayers.ptr, @intCast(instanceExtensions.len), instanceExtensions.ptr, allocator);
         const device = try VulkanDevice.new(&instance, @intCast(deviceExtensions.len), deviceExtensions.ptr, allocator);
         const surface = try VulkanSurface.new(&instance, window);
         const swapchain = try VulkanSwapchain.new(&device, &surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, null, allocator);
