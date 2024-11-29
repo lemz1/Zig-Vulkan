@@ -18,6 +18,7 @@ const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanPipeline = vulkan.VulkanPipeline;
 const VulkanBuffer = vulkan.VulkanBuffer;
+const VulkanImage = vulkan.VulkanImage;
 
 const Window = core.Window;
 
@@ -112,5 +113,9 @@ pub const VulkanCommandBuffer = struct {
 
     pub fn copyBuffer(self: *const VulkanCommandBuffer, srcBuffer: *const VulkanBuffer, dstBuffer: *const VulkanBuffer, region: c.VkBufferCopy) void {
         c.vkCmdCopyBuffer(self.handle, srcBuffer.handle, dstBuffer.handle, 1, &region);
+    }
+
+    pub fn copyBufferToImage(self: *const VulkanCommandBuffer, srcBuffer: *const VulkanBuffer, dstImage: *const VulkanImage, region: c.VkBufferImageCopy) void {
+        c.vkCmdCopyBufferToImage(self.handle, srcBuffer.handle, dstImage.handle, c.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     }
 };

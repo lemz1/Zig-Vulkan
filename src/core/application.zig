@@ -11,9 +11,12 @@ const vulkan = @import("../vulkan.zig");
 const VulkanContext = vulkan.VulkanContext;
 const VulkanPipeline = vulkan.VulkanPipeline;
 const VulkanBuffer = vulkan.VulkanBuffer;
+const VulkanImage = vulkan.VulkanImage;
 const VulkanCreateOptions = vulkan.VulkanCreateOptions;
 const GLFW = core.GLFW;
 const Window = core.Window;
+
+const stb = @cImport(@cInclude("stb_image/stb_image.h"));
 
 pub const ApplicationCreateOptions = struct {
     allocator: Allocator,
@@ -47,6 +50,29 @@ pub const Application = struct {
     }
 
     pub fn run(self: *Application) void {
+        var width: i32 = undefined;
+        var height: i32 = undefined;
+        var channels: i32 = undefined;
+        const pixels = stb.stbi_load("assets/images/test.png", &width, &height, &channels, 4);
+        defer stb.stbi_image_free(pixels);
+        var image = if (VulkanImage.new(
+            &self.ctx.device,
+            @intCast(width),
+            @intCast(height),
+            c.VK_FORMAT_R8G8B8A8_UNORM,
+            c.VK_IMAGE_USAGE_SAMPLED_BIT | c.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        )) |v| v else |_| return;
+        defer image.destroy(&self.ctx.device);
+
+        image.uploadData(
+            &self.ctx.device,
+            @intCast(width),
+            @intCast(height),
+            c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            c.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            pixels[0..(@as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4)],
+        ) catch {};
+
         const vertices: []const f32 = &.{ -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5 };
 
         var vertexBuffer = if (VulkanBuffer.new(

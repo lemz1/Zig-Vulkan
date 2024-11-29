@@ -1,11 +1,19 @@
-const c = @cImport({
-    @cInclude("string.h");
-    @cInclude("vulkan/vulkan.h");
-});
+const c = @cImport(@cInclude("vulkan/vulkan.h"));
+
+const cStrcmp = @cImport(@cInclude("string.h")).strcmp;
+
 const std = @import("std");
 
+const vulkan = @import("../vulkan.zig");
+
+const VulkanDevice = vulkan.VulkanDevice;
+
+const VulkanUtilError = error{
+    FindMemoryType,
+};
+
 pub fn strcmp(str1: [*c]const u8, str2: [*c]const u8) bool {
-    return c.strcmp(str1, str2) == 1;
+    return cStrcmp(str1, str2) == 1;
 }
 
 pub fn vkCheck(res: c.VkResult) void {
@@ -15,6 +23,21 @@ pub fn vkCheck(res: c.VkResult) void {
             std.debug.print("[Vulkan] Error: {}", .{res});
         },
     }
+}
+
+pub fn findMemoryType(device: *const VulkanDevice, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !u32 {
+    var deviceMemoryProperties: c.VkPhysicalDeviceMemoryProperties = undefined;
+    c.vkGetPhysicalDeviceMemoryProperties(device.physicalDevice, &deviceMemoryProperties);
+
+    for (0..deviceMemoryProperties.memoryTypeCount) |i| {
+        if ((typeFilter & (@as(u32, 1) << @intCast(i))) != 0) {
+            if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & memoryProperties) == memoryProperties) {
+                return @intCast(i);
+            }
+        }
+    }
+
+    return VulkanUtilError.FindMemoryType;
 }
 
 pub fn propertyArray(comptime FieldType: type, allocator: std.mem.Allocator, obj: anytype, comptime fieldName: []const u8) ![]FieldType {

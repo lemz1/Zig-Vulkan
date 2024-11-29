@@ -26,7 +26,6 @@ const Window = core.Window;
 const VulkanBufferError = error{
     CreateBuffer,
     CreateMemory,
-    FindMemoryType,
 };
 
 pub const VulkanBuffer = struct {
@@ -54,7 +53,7 @@ pub const VulkanBuffer = struct {
         var memoryRequirements: c.VkMemoryRequirements = undefined;
         c.vkGetBufferMemoryRequirements(device.handle, buffer, &memoryRequirements);
 
-        const memoryIndex = try findMemoryType(device, memoryRequirements.memoryTypeBits, memoryProperties);
+        const memoryIndex = try util.findMemoryType(device, memoryRequirements.memoryTypeBits, memoryProperties);
 
         var allocateInfo = c.VkMemoryAllocateInfo{};
         allocateInfo.sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -138,20 +137,5 @@ pub const VulkanBuffer = struct {
             device.graphicsQueue.submit(&submitInfo, null);
             device.graphicsQueue.wait();
         }
-    }
-
-    fn findMemoryType(device: *const VulkanDevice, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !u32 {
-        var deviceMemoryProperties: c.VkPhysicalDeviceMemoryProperties = undefined;
-        c.vkGetPhysicalDeviceMemoryProperties(device.physicalDevice, &deviceMemoryProperties);
-
-        for (0..deviceMemoryProperties.memoryTypeCount) |i| {
-            if ((typeFilter & (@as(u32, 1) << @intCast(i))) != 0) {
-                if ((deviceMemoryProperties.memoryTypes[i].propertyFlags & memoryProperties) == memoryProperties) {
-                    return @intCast(i);
-                }
-            }
-        }
-
-        return VulkanBufferError.FindMemoryType;
     }
 };

@@ -29,6 +29,7 @@ pub fn build(b: *std.Build) void {
     addGlfw(exe, b, target, optimize);
     addVulkan(exe, b, target, optimize);
     addZMath(exe, b, target, optimize);
+    addStb(exe, b, target, optimize);
 
     b.installDirectory(.{
         .source_dir = b.path("assets"),
@@ -188,4 +189,9 @@ fn addVulkan(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.
 fn addZMath(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
     const zmath = b.dependency("zmath", .{});
     compile.root_module.addImport("zmath", zmath.module("root"));
+}
+
+fn addStb(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
+    compile.addCSourceFile(.{ .file = b.path("src/vnd/stb_image.c") });
+    compile.addIncludePath(b.path("vnd/stb"));
 }
