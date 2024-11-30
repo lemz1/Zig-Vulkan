@@ -12,20 +12,31 @@ const VulkanSamplerError = error{
     CreateSampler,
 };
 
+pub const VulkanSamplerFilter = enum(c.VkFilter) {
+    Linear = c.VK_FILTER_LINEAR,
+    Nearest = c.VK_FILTER_NEAREST,
+};
+
+pub const VulkanSamplerAddressMode = enum(c.VkSamplerAddressMode) {
+    Clamped = c.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+    Repeated = c.VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    Mirrored = c.VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
+};
+
 pub const VulkanSampler = struct {
     handle: c.VkSampler,
 
-    pub fn new(device: *const VulkanDevice) !VulkanSampler {
+    pub fn new(device: *const VulkanDevice, filter: VulkanSamplerFilter, addressMode: VulkanSamplerAddressMode) !VulkanSampler {
         var sampler: c.VkSampler = undefined;
         {
             var createInfo = c.VkSamplerCreateInfo{};
             createInfo.sType = c.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-            createInfo.magFilter = c.VK_FILTER_LINEAR;
-            createInfo.minFilter = c.VK_FILTER_LINEAR;
+            createInfo.magFilter = @intFromEnum(filter);
+            createInfo.minFilter = @intFromEnum(filter);
             createInfo.mipmapMode = c.VK_SAMPLER_MIPMAP_MODE_LINEAR;
-            createInfo.addressModeU = c.VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-            createInfo.addressModeV = createInfo.addressModeU;
-            createInfo.addressModeW = createInfo.addressModeU;
+            createInfo.addressModeU = @intFromEnum(addressMode);
+            createInfo.addressModeV = @intFromEnum(addressMode);
+            createInfo.addressModeW = @intFromEnum(addressMode);
             createInfo.mipLodBias = 0.0;
             createInfo.maxAnisotropy = 1.0;
             createInfo.minLod = 0.0;

@@ -25,7 +25,7 @@ const enableValidationLayers = switch (builtin.mode) {
     else => false,
 };
 
-pub const VulkanCreateOptions = struct {
+pub const VulkanContextCreateOptions = struct {
     framesInFlight: u32 = 2,
 };
 
@@ -45,7 +45,7 @@ pub const VulkanContext = struct {
     releaseSemaphores: []VulkanSemaphore,
     allocator: Allocator,
 
-    pub fn create(window: *const Window, options: VulkanCreateOptions, allocator: Allocator) !VulkanContext {
+    pub fn create(window: *const Window, options: VulkanContextCreateOptions, allocator: Allocator) !VulkanContext {
         const framesInFlight: u32 = if (options.framesInFlight >= 1) options.framesInFlight else 2;
 
         const validationLayers: []const [*:0]const u8 = &[_][*:0]const u8{

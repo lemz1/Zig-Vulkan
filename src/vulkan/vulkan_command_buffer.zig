@@ -7,6 +7,7 @@ const Allocator = std.mem.Allocator;
 const VulkanDevice = vulkan.VulkanDevice;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanPipeline = vulkan.VulkanPipeline;
+const VulkanDescriptorSet = vulkan.VulkanDescriptorSet;
 const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanImage = vulkan.VulkanImage;
 const vkCheck = base.vkCheck;
@@ -64,6 +65,10 @@ pub const VulkanCommandBuffer = struct {
 
     pub fn bindGraphicsPipeline(self: *const VulkanCommandBuffer, pipeline: *const VulkanPipeline) void {
         c.vkCmdBindPipeline(self.handle, c.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
+    }
+
+    pub fn bindDescriptorSet(self: *const VulkanCommandBuffer, pipeline: *const VulkanPipeline, descriptorSet: *const VulkanDescriptorSet) void {
+        c.vkCmdBindDescriptorSets(self.handle, c.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, &descriptorSet.handle, 0, null);
     }
 
     pub fn bindVertexBuffer(self: *const VulkanCommandBuffer, vertexBuffer: *const VulkanBuffer, offset: c.VkDeviceSize) void {

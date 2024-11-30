@@ -1,5 +1,5 @@
 pub const VulkanContext = @import("vulkan/vulkan_context.zig").VulkanContext;
-pub const VulkanCreateOptions = @import("vulkan/vulkan_context.zig").VulkanCreateOptions;
+pub const VulkanContextCreateOptions = @import("vulkan/vulkan_context.zig").VulkanContextCreateOptions;
 pub const VulkanInstance = @import("vulkan/vulkan_instance.zig").VulkanInstance;
 pub const VulkanDevice = @import("vulkan/vulkan_device.zig").VulkanDevice;
 pub const VulkanSurface = @import("vulkan/vulkan_surface.zig").VulkanSurface;
@@ -16,4 +16,5 @@ pub const VulkanPipeline = @import("vulkan/vulkan_pipeline.zig").VulkanPipeline;
 pub const VulkanBuffer = @import("vulkan/vulkan_buffer.zig").VulkanBuffer;
 pub const VulkanImage = @import("vulkan/vulkan_image.zig").VulkanImage;
 pub const VulkanSampler = @import("vulkan/vulkan_sampler.zig").VulkanSampler;
+pub const VulkanDescriptorPool = @import("vulkan/vulkan_descriptor_pool.zig").VulkanDescriptorPool;
 pub const VulkanDescriptorSet = @import("vulkan/vulkan_descriptor_set.zig").VulkanDescriptorSet;

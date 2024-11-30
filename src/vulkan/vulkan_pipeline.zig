@@ -23,9 +23,9 @@ pub const VulkanPipeline = struct {
         vertPath: []const u8,
         fragPath: []const u8,
         renderPass: *const VulkanRenderPass,
-        attributeDescriptions: []c.VkVertexInputAttributeDescription,
-        bindingDescriptions: []c.VkVertexInputBindingDescription,
-        descriptorSetLayouts: []c.VkDescriptorSetLayout,
+        attributeDescriptions: []const c.VkVertexInputAttributeDescription,
+        bindingDescriptions: []const c.VkVertexInputBindingDescription,
+        descriptorSetLayouts: []const c.VkDescriptorSetLayout,
         allocator: Allocator,
     ) !VulkanPipeline {
         var vertModule = try VulkanShaderModule.new(device, vertPath, allocator);
