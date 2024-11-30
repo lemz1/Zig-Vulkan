@@ -9,7 +9,6 @@ const ImageDataError = error{
 
 pub const ImageFormat = enum(c.VkFormat) {
     RGBA8 = c.VK_FORMAT_R8G8B8A8_UNORM,
-    //RGBA16 = c.VK_FORMAT_R16G16B16A16_SFLOAT,
     RGBA32 = c.VK_FORMAT_R32G32B32A32_SFLOAT,
 };
 
@@ -41,7 +40,6 @@ pub const ImageData = struct {
         var channels: i32 = undefined;
         const pixels: ?*anyopaque = switch (format) {
             .RGBA8 => c.stbi_load(path.ptr, &width, &height, &channels, 4),
-            //.RGBA16 => c.stbi_load_16(path.ptr, &width, &height, &channels, 4),
             .RGBA32 => c.stbi_loadf(path.ptr, &width, &height, &channels, 4),
         };
 
