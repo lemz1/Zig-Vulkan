@@ -1,28 +1,18 @@
 const std = @import("std");
-const builtin = @import("builtin");
-const Allocator = std.mem.Allocator;
-
-const util = @import("util.zig");
-
+const base = @import("base.zig");
+const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const memcpy = @cImport(@cInclude("memory.h")).memcpy;
-
-const vkCheck = util.vkCheck;
-
-const core = @import("../core.zig");
-const vulkan = @import("../vulkan.zig");
-
-const VulkanInstance = vulkan.VulkanInstance;
+const Allocator = std.mem.Allocator;
 const VulkanDevice = vulkan.VulkanDevice;
-const VulkanSurface = vulkan.VulkanSurface;
-const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
-const VulkanPipeline = vulkan.VulkanPipeline;
+const vkCheck = base.vkCheck;
+const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
-const Window = core.Window;
-
+const VulkanShaderModuleError = error{
+    CreateShaderModule,
+};
 const VulkanBufferError = error{
     CreateBuffer,
     CreateMemory,
@@ -53,7 +43,7 @@ pub const VulkanBuffer = struct {
         var memoryRequirements: c.VkMemoryRequirements = undefined;
         c.vkGetBufferMemoryRequirements(device.handle, buffer, &memoryRequirements);
 
-        const memoryIndex = try util.findMemoryType(device, memoryRequirements.memoryTypeBits, memoryProperties);
+        const memoryIndex = try base.findMemoryType(device, memoryRequirements.memoryTypeBits, memoryProperties);
 
         var allocateInfo = c.VkMemoryAllocateInfo{};
         allocateInfo.sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;

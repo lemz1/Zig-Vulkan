@@ -1,24 +1,14 @@
 const std = @import("std");
-const builtin = @import("builtin");
-const Allocator = std.mem.Allocator;
-
-const util = @import("util.zig");
-
+const base = @import("base.zig");
+const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const vkCheck = util.vkCheck;
-
-const core = @import("../core.zig");
-const vulkan = @import("../vulkan.zig");
-
-const VulkanInstance = vulkan.VulkanInstance;
+const Allocator = std.mem.Allocator;
 const VulkanDevice = vulkan.VulkanDevice;
 const VulkanSurface = vulkan.VulkanSurface;
 const VulkanFence = vulkan.VulkanFence;
 const VulkanSemaphore = vulkan.VulkanSemaphore;
-const VulkanFramebuffer = vulkan.VulkanFramebuffer;
-
-const Window = core.Window;
+const vkCheck = base.vkCheck;
 
 const VulkanSwapchainError = error{
     CreateSwapchain,

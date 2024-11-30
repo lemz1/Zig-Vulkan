@@ -1,20 +1,12 @@
 const std = @import("std");
-const builtin = @import("builtin");
-const Allocator = std.mem.Allocator;
-
-const util = @import("util.zig");
-
+const base = @import("base.zig");
+const core = @import("../core.zig");
+const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const vkCheck = util.vkCheck;
-
-const core = @import("../core.zig");
-
-const vulkan = @import("../vulkan.zig");
-
-const VulkanInstance = vulkan.VulkanInstance;
-
 const Window = core.Window;
+const VulkanInstance = vulkan.VulkanInstance;
+const vkCheck = base.vkCheck;
 
 const VulkanSurfaceError = error{
     CreateSurface,

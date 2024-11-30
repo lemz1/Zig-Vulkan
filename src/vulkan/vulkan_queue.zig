@@ -1,15 +1,15 @@
 const std = @import("std");
-const builtin = @import("builtin");
-const Allocator = std.mem.Allocator;
-
+const base = @import("base.zig");
+const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const util = @import("util.zig");
+const Allocator = std.mem.Allocator;
+const VulkanDevice = vulkan.VulkanDevice;
+const vkCheck = base.vkCheck;
 
-const vkCheck = util.vkCheck;
-
-const core = @import("../core.zig");
-const vulkan = @import("../vulkan.zig");
+const VulkanShaderModuleError = error{
+    CreateShaderModule,
+};
 
 const VulkanFence = vulkan.VulkanFence;
 

@@ -1,12 +1,10 @@
 const std = @import("std");
-
+const vulkan = @import("../vulkan.zig");
 const c = @cImport({
     @cInclude("vulkan/vulkan.h");
     @cDefine("GLFW_INCLUDE_NONE", {});
     @cInclude("GLFW/glfw3.h");
 });
-
-const vulkan = @import("../vulkan.zig");
 
 const VulkanInstance = vulkan.VulkanInstance;
 

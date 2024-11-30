@@ -1,12 +1,9 @@
+const std = @import("std");
+const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const cStrcmp = @cImport(@cInclude("string.h")).strcmp;
-
-const std = @import("std");
-
-const vulkan = @import("../vulkan.zig");
-
 const VulkanDevice = vulkan.VulkanDevice;
+const cStrcmp = @cImport(@cInclude("string.h")).strcmp;
 
 const VulkanUtilError = error{
     FindMemoryType,

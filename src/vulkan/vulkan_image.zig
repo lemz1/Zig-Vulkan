@@ -1,27 +1,21 @@
 const std = @import("std");
-const builtin = @import("builtin");
-const Allocator = std.mem.Allocator;
-
-const util = @import("util.zig");
-
+const base = @import("base.zig");
+const vulkan = @import("../vulkan.zig");
+const util = @import("../util.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const vkCheck = util.vkCheck;
-
-const memcpy = @cImport(@cInclude("memory.h")).memcpy;
-
-const core = @import("../core.zig");
-const vulkan = @import("../vulkan.zig");
-
-const VulkanInstance = vulkan.VulkanInstance;
+const Allocator = std.mem.Allocator;
 const VulkanDevice = vulkan.VulkanDevice;
-const VulkanSurface = vulkan.VulkanSurface;
-const VulkanRenderPass = vulkan.VulkanRenderPass;
-const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
+const VulkanBuffer = vulkan.VulkanBuffer;
+const ImageData = util.ImageData;
+const vkCheck = base.vkCheck;
+const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
-const Window = core.Window;
+const VulkanShaderModuleError = error{
+    CreateShaderModule,
+};
 
 const VulkanImageError = error{
     CreateImage,
@@ -37,18 +31,18 @@ pub const VulkanImage = struct {
     uploadCmdPool: VulkanCommandPool,
     uploadCmdBuffer: VulkanCommandBuffer,
 
-    pub fn new(device: *const VulkanDevice, width: u32, height: u32, format: c.VkFormat, usage: c.VkImageUsageFlags) !VulkanImage {
+    pub fn new(device: *const VulkanDevice, imageData: *const ImageData, usage: c.VkImageUsageFlags) !VulkanImage {
         var image: c.VkImage = undefined;
         {
             var createInfo = c.VkImageCreateInfo{};
             createInfo.sType = c.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
             createInfo.imageType = c.VK_IMAGE_TYPE_2D;
-            createInfo.extent.width = width;
-            createInfo.extent.height = height;
+            createInfo.extent.width = imageData.width;
+            createInfo.extent.height = imageData.height;
             createInfo.extent.depth = 1;
             createInfo.mipLevels = 1;
             createInfo.arrayLayers = 1;
-            createInfo.format = format;
+            createInfo.format = @intFromEnum(imageData.format);
             createInfo.tiling = c.VK_IMAGE_TILING_OPTIMAL;
             createInfo.initialLayout = c.VK_IMAGE_LAYOUT_UNDEFINED;
             createInfo.usage = usage;
@@ -72,7 +66,7 @@ pub const VulkanImage = struct {
             var allocateInfo = c.VkMemoryAllocateInfo{};
             allocateInfo.sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
             allocateInfo.allocationSize = memoryRequirements.size;
-            allocateInfo.memoryTypeIndex = try util.findMemoryType(device, memoryRequirements.memoryTypeBits, c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            allocateInfo.memoryTypeIndex = try base.findMemoryType(device, memoryRequirements.memoryTypeBits, c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
             switch (c.vkAllocateMemory(device.handle, &allocateInfo, null, &memory)) {
                 c.VK_SUCCESS => {},
                 else => {
@@ -90,7 +84,7 @@ pub const VulkanImage = struct {
             createInfo.sType = c.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
             createInfo.image = image;
             createInfo.viewType = c.VK_IMAGE_VIEW_TYPE_2D;
-            createInfo.format = format;
+            createInfo.format = @intFromEnum(imageData.format);
             createInfo.subresourceRange.aspectMask = c.VK_IMAGE_ASPECT_COLOR_BIT;
             createInfo.subresourceRange.levelCount = 1;
             createInfo.subresourceRange.layerCount = 1;
@@ -128,21 +122,13 @@ pub const VulkanImage = struct {
     pub fn uploadData(
         self: *const VulkanImage,
         device: *const VulkanDevice,
-        width: u32,
-        height: u32,
+        imageData: *const ImageData,
         finalLayout: c.VkImageLayout,
         _: c.VkAccessFlags,
-        data: anytype,
     ) !void {
-        const typeInfo = @typeInfo(@TypeOf(data));
+        const pixels = if (imageData.pixels) |v| v else return;
 
-        comptime {
-            if (typeInfo != .pointer or typeInfo.pointer.size != .Slice) {
-                @compileError("Data is not a Slice\n");
-            }
-        }
-
-        const size: c.VkDeviceSize = data.len * @sizeOf(typeInfo.pointer.child);
+        const size: c.VkDeviceSize = imageData.size;
 
         var stagingBuffer = try VulkanBuffer.new(
             device,
@@ -154,7 +140,7 @@ pub const VulkanImage = struct {
 
         var mapped: ?*anyopaque = undefined;
         vkCheck(c.vkMapMemory(device.handle, stagingBuffer.memory, 0, size, 0, &mapped));
-        _ = memcpy(mapped, data.ptr, size);
+        _ = memcpy(mapped, pixels, size);
         c.vkUnmapMemory(device.handle, stagingBuffer.memory);
 
         self.uploadCmdPool.reset(device);
@@ -191,8 +177,8 @@ pub const VulkanImage = struct {
             region.imageSubresource.aspectMask = c.VK_IMAGE_ASPECT_COLOR_BIT;
             region.imageSubresource.layerCount = 1;
             region.imageExtent = .{
-                .width = width,
-                .height = height,
+                .width = imageData.width,
+                .height = imageData.height,
                 .depth = 1,
             };
 

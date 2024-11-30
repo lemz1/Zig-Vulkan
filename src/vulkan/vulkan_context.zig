@@ -1,29 +1,28 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const Allocator = std.mem.Allocator;
-
-const util = @import("util.zig");
-
-const core = @import("../core.zig");
+const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
+const core = @import("../core.zig");
+const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const Window = core.Window;
-const GLFW = core.GLFW;
-
+const Allocator = std.mem.Allocator;
 const VulkanInstance = vulkan.VulkanInstance;
 const VulkanDevice = vulkan.VulkanDevice;
 const VulkanSurface = vulkan.VulkanSurface;
 const VulkanSwapchain = vulkan.VulkanSwapchain;
-const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanFramebuffer = vulkan.VulkanFramebuffer;
-const VulkanFence = vulkan.VulkanFence;
-const VulkanSemaphore = vulkan.VulkanSemaphore;
+const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
+const VulkanFence = vulkan.VulkanFence;
+const VulkanSemaphore = vulkan.VulkanSemaphore;
+const Window = core.Window;
+const GLFW = core.GLFW;
+const vkCheck = base.vkCheck;
 
-const c = @cImport(@cInclude("vulkan/vulkan.h"));
-
-const vkCheck = util.vkCheck;
+const VulkanShaderModuleError = error{
+    CreateShaderModule,
+};
 
 const enableValidationLayers = switch (builtin.mode) {
     .Debug, .ReleaseSafe => true,

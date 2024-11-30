@@ -1,13 +1,15 @@
 const std = @import("std");
-const builtin = @import("builtin");
-const Allocator = std.mem.Allocator;
-
-const util = @import("util.zig");
-
+const base = @import("base.zig");
+const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const vkCheck = util.vkCheck;
+const Allocator = std.mem.Allocator;
+const VulkanDevice = vulkan.VulkanDevice;
+const vkCheck = base.vkCheck;
 
+const VulkanShaderModuleError = error{
+    CreateShaderModule,
+};
 const VulkanInstanceError = error{
     CreateInstance,
     CreateDebugCallback,
@@ -37,7 +39,7 @@ pub const VulkanInstance = struct {
             for (0..validationLayersCount) |i| {
                 var found = false;
                 for (availableLayers) |*layerProperties| {
-                    if (util.strcmp(validationLayers[i], &layerProperties.layerName)) {
+                    if (base.strcmp(validationLayers[i], &layerProperties.layerName)) {
                         found = true;
                         break;
                     }
