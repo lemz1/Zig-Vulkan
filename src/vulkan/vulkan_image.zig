@@ -13,10 +13,6 @@ const ImageData = util.ImageData;
 const vkCheck = base.vkCheck;
 const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
-
 const VulkanImageError = error{
     CreateImage,
     AllocateMemory,
@@ -111,7 +107,6 @@ pub const VulkanImage = struct {
     }
 
     pub fn destroy(self: *VulkanImage, device: *const VulkanDevice) void {
-        self.uploadCmdBuffer.destroy(device, &self.uploadCmdPool);
         self.uploadCmdPool.destroy(device);
 
         c.vkDestroyImageView(device.handle, self.view, null);

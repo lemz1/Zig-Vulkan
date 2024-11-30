@@ -9,10 +9,6 @@ const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanShaderModule = vulkan.VulkanShaderModule;
 const vkCheck = base.vkCheck;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
-
 const VulkanPipelineError = error{
     CreatePipeline,
     CreatePipelineLayout,
@@ -29,6 +25,7 @@ pub const VulkanPipeline = struct {
         renderPass: *const VulkanRenderPass,
         attributeDescriptions: []c.VkVertexInputAttributeDescription,
         bindingDescriptions: []c.VkVertexInputBindingDescription,
+        descriptorSetLayouts: []c.VkDescriptorSetLayout,
         allocator: Allocator,
     ) !VulkanPipeline {
         var vertModule = try VulkanShaderModule.new(device, vertPath, allocator);
@@ -89,7 +86,13 @@ pub const VulkanPipeline = struct {
 
         var colorBlendAttachment = c.VkPipelineColorBlendAttachmentState{};
         colorBlendAttachment.colorWriteMask = c.VK_COLOR_COMPONENT_R_BIT | c.VK_COLOR_COMPONENT_G_BIT | c.VK_COLOR_COMPONENT_B_BIT | c.VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachment.blendEnable = c.VK_FALSE;
+        colorBlendAttachment.blendEnable = c.VK_TRUE;
+        colorBlendAttachment.srcColorBlendFactor = c.VK_BLEND_FACTOR_SRC_ALPHA;
+        colorBlendAttachment.dstColorBlendFactor = c.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+        colorBlendAttachment.colorBlendOp = c.VK_BLEND_OP_ADD;
+        colorBlendAttachment.srcAlphaBlendFactor = c.VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.dstAlphaBlendFactor = c.VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.alphaBlendOp = c.VK_BLEND_OP_ADD;
 
         var colorBlendState = c.VkPipelineColorBlendStateCreateInfo{};
         colorBlendState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -106,6 +109,8 @@ pub const VulkanPipeline = struct {
         {
             var createInfo = c.VkPipelineLayoutCreateInfo{};
             createInfo.sType = c.VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+            createInfo.setLayoutCount = @intCast(descriptorSetLayouts.len);
+            createInfo.pSetLayouts = descriptorSetLayouts.ptr;
 
             switch (c.vkCreatePipelineLayout(device.handle, &createInfo, null, &pipelineLayout)) {
                 c.VK_SUCCESS => {},

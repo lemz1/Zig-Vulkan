@@ -11,10 +11,6 @@ const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanImage = vulkan.VulkanImage;
 const vkCheck = base.vkCheck;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
-
 const VulkanCommandBufferError = error{
     CreateCommandBuffer,
 };

@@ -8,10 +8,6 @@ const VulkanDevice = vulkan.VulkanDevice;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
 const vkCheck = base.vkCheck;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
-
 const VulkanFramebufferError = error{
     CreateFramebuffer,
 };

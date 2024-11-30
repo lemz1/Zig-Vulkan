@@ -15,3 +15,5 @@ pub const VulkanShaderModule = @import("vulkan/vulkan_shader_module.zig").Vulkan
 pub const VulkanPipeline = @import("vulkan/vulkan_pipeline.zig").VulkanPipeline;
 pub const VulkanBuffer = @import("vulkan/vulkan_buffer.zig").VulkanBuffer;
 pub const VulkanImage = @import("vulkan/vulkan_image.zig").VulkanImage;
+pub const VulkanSampler = @import("vulkan/vulkan_sampler.zig").VulkanSampler;
+pub const VulkanDescriptorSet = @import("vulkan/vulkan_descriptor_set.zig").VulkanDescriptorSet;

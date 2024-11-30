@@ -9,6 +9,8 @@ const VulkanContext = vulkan.VulkanContext;
 const VulkanPipeline = vulkan.VulkanPipeline;
 const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanImage = vulkan.VulkanImage;
+const VulkanSampler = vulkan.VulkanSampler;
+const VulkanDescriptorSet = vulkan.VulkanDescriptorSet;
 const VulkanCreateOptions = vulkan.VulkanCreateOptions;
 const GLFW = core.GLFW;
 const Window = core.Window;
@@ -67,7 +69,35 @@ pub const Application = struct {
             return;
         };
 
-        const vertices: []const f32 = &.{ -0.5, -0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5 };
+        var sampler = if (VulkanSampler.new(&self.ctx.device)) |v| v else |_| return;
+        defer sampler.destroy(&self.ctx.device);
+
+        var descriptorSet = if (VulkanDescriptorSet.new(&self.ctx.device)) |v| v else |_| return;
+        defer descriptorSet.destroy(&self.ctx.device);
+
+        descriptorSet.update(&self.ctx.device, &sampler, &image);
+
+        const vertices: []const f32 = &.{
+            -0.5,
+            -0.5,
+            0.0,
+            0.0,
+
+            0.5,
+            -0.5,
+            1.0,
+            0.0,
+
+            -0.5,
+            0.5,
+            0.0,
+            1.0,
+
+            0.5,
+            0.5,
+            1.0,
+            1.0,
+        };
 
         var vertexBuffer = if (VulkanBuffer.new(
             &self.ctx.device,
@@ -100,21 +130,28 @@ pub const Application = struct {
         var vertexBindingDescriptions = [1]c.VkVertexInputBindingDescription{undefined};
         vertexBindingDescriptions[0].binding = 0;
         vertexBindingDescriptions[0].inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX;
-        vertexBindingDescriptions[0].stride = @sizeOf(f32) * 2;
+        vertexBindingDescriptions[0].stride = @sizeOf(f32) * 4;
 
-        var vertexAttributeDescriptions = [1]c.VkVertexInputAttributeDescription{undefined};
+        var vertexAttributeDescriptions = [2]c.VkVertexInputAttributeDescription{ undefined, undefined };
         vertexAttributeDescriptions[0].binding = 0;
         vertexAttributeDescriptions[0].location = 0;
         vertexAttributeDescriptions[0].format = c.VK_FORMAT_R32G32_SFLOAT;
         vertexAttributeDescriptions[0].offset = 0;
+        vertexAttributeDescriptions[1].binding = 0;
+        vertexAttributeDescriptions[1].location = 1;
+        vertexAttributeDescriptions[1].format = c.VK_FORMAT_R32G32_SFLOAT;
+        vertexAttributeDescriptions[1].offset = @sizeOf(f32) * 2;
+
+        var descriptorSetLayouts = [1]c.VkDescriptorSetLayout{descriptorSet.layout};
 
         var pipeline = if (VulkanPipeline.new(
             &self.ctx.device,
-            "assets/shaders/buffer_vert.spv",
-            "assets/shaders/buffer_frag.spv",
+            "assets/shaders/texture_vert.spv",
+            "assets/shaders/texture_frag.spv",
             &self.ctx.renderPass,
             &vertexAttributeDescriptions,
             &vertexBindingDescriptions,
+            &descriptorSetLayouts,
             self.allocator,
         )) |v| v else |_| return;
         defer pipeline.destroy(&self.ctx.device);
@@ -181,6 +218,7 @@ pub const Application = struct {
 
                 commandBuffer.bindVertexBuffer(&vertexBuffer, 0);
                 commandBuffer.bindIndexBuffer(&indexBuffer, 0);
+                c.vkCmdBindDescriptorSets(commandBuffer.handle, c.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, &descriptorSet.handle, 0, null);
                 commandBuffer.drawIndexed(indices.len);
 
                 commandBuffer.endRenderPass();

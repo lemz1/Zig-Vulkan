@@ -7,9 +7,6 @@ const Allocator = std.mem.Allocator;
 const VulkanDevice = vulkan.VulkanDevice;
 const vkCheck = base.vkCheck;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
 const VulkanInstanceError = error{
     CreateInstance,
     CreateDebugCallback,

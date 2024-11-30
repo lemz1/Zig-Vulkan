@@ -20,10 +20,6 @@ const Window = core.Window;
 const GLFW = core.GLFW;
 const vkCheck = base.vkCheck;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
-
 const enableValidationLayers = switch (builtin.mode) {
     .Debug, .ReleaseSafe => true,
     else => false,
@@ -128,7 +124,6 @@ pub const VulkanContext = struct {
         self.device.wait();
 
         for (0..self.framesInFlight) |i| {
-            self.commandBuffers[i].destroy(&self.device, &self.commandPools[i]);
             self.commandPools[i].destroy(&self.device);
 
             self.releaseSemaphores[i].destroy(&self.device);

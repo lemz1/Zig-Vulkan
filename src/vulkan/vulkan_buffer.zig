@@ -10,9 +10,6 @@ const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
 const vkCheck = base.vkCheck;
 const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
 const VulkanBufferError = error{
     CreateBuffer,
     CreateMemory,
@@ -74,7 +71,6 @@ pub const VulkanBuffer = struct {
     }
 
     pub fn destroy(self: *VulkanBuffer, device: *const VulkanDevice) void {
-        self.uploadCmdBuffer.destroy(device, &self.uploadCmdPool);
         self.uploadCmdPool.destroy(device);
         c.vkFreeMemory(device.handle, self.memory, null);
         c.vkDestroyBuffer(device.handle, self.handle, null);

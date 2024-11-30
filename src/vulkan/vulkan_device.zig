@@ -8,10 +8,6 @@ const VulkanInstance = vulkan.VulkanInstance;
 const VulkanQueue = vulkan.VulkanQueue;
 const vkCheck = base.vkCheck;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
-
 const VulkanDeviceError = error{
     CreateDevice,
     NoGPUsFound,
