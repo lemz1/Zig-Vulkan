@@ -166,8 +166,8 @@ pub const Application = struct {
 
             if (VulkanPipeline.new(
                 &self.ctx.device,
-                "assets/shaders/texture_vert.spv",
-                "assets/shaders/texture_frag.spv",
+                "assets/shaders/texture.vert.spv",
+                "assets/shaders/texture.frag.spv",
                 &self.ctx.renderPass,
                 &attributes,
                 &bindings,

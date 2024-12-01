@@ -31,11 +31,16 @@ pub fn build(b: *std.Build) void {
     addZMath(exe, b, target, optimize);
     addStb(exe, b, target, optimize);
 
-    b.installDirectory(.{
+    const compileShadersStep = compileShaders(b);
+
+    var copyAssetsStep = b.addInstallDirectory(.{
         .source_dir = b.path("assets"),
         .install_dir = .{ .bin = {} },
         .install_subdir = "assets",
     });
+    copyAssetsStep.step.dependOn(compileShadersStep);
+
+    b.getInstallStep().dependOn(&copyAssetsStep.step);
 
     b.installArtifact(exe);
 
@@ -194,4 +199,35 @@ fn addZMath(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.Resolv
 fn addStb(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
     compile.addCSourceFile(.{ .file = b.path("src/vnd/stb_image.c") });
     compile.addIncludePath(b.path("vnd/stb"));
+}
+
+fn compileShaders(b: *std.Build) *std.Build.Step {
+    const step = b.step("compile-shaders", "Compile GLSL shaders to SPIR-V");
+
+    const fs = std.fs.cwd();
+    const handle = fs.openDir("assets/shaders", .{ .iterate = true }) catch {
+        @panic("Could not open shader source directory");
+    };
+
+    var iter = handle.iterate();
+    while (iter.next() catch {
+        return step;
+    }) |entry| {
+        const ext = std.fs.path.extension(entry.name);
+        if (std.mem.eql(u8, ext, ".frag") or std.mem.eql(u8, ext, ".vert")) {
+            const inputPath = std.fmt.allocPrint(b.allocator, "assets/shaders/{s}", .{entry.name}) catch {
+                @panic("Could not allocate shader input path");
+            };
+
+            const outputPath = std.fmt.allocPrint(b.allocator, "assets/shaders/{s}.spv", .{entry.name}) catch {
+                @panic("Could not allocate shader output path");
+            };
+
+            const cmd = b.addSystemCommand(&.{ "glslangValidator", "-V", inputPath, "-o", outputPath });
+
+            step.dependOn(&cmd.step);
+        }
+    }
+
+    return step;
 }
