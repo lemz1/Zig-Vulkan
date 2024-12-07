@@ -189,6 +189,10 @@ fn addVulkan(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.
 
     compile.addLibraryPath(.{ .cwd_relative = vulkanLib });
     compile.linkSystemLibrary(if (target.result.os.tag == .windows) "vulkan-1" else "vulkan");
+
+    compile.addLibraryPath(b.path("vnd/glslang"));
+    compile.linkSystemLibrary("glslang");
+    compile.linkSystemLibrary("glslang-default-resource-limits");
 }
 
 fn addZMath(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
@@ -197,7 +201,7 @@ fn addZMath(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.Resolv
 }
 
 fn addStb(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
-    compile.addCSourceFile(.{ .file = b.path("src/vnd/stb_image.c") });
+    compile.addCSourceFile(.{ .file = b.path("src/vnd/stb/stb_image.c") });
     compile.addIncludePath(b.path("vnd/stb"));
 }
 
