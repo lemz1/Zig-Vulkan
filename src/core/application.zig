@@ -155,20 +155,6 @@ pub const Application = struct {
             return;
         };
 
-        var fragShader = blk: {
-            const file = if (std.fs.cwd().openFile("assets/shaders/texture.frag", .{ .mode = .read_only })) |v| v else |_| return;
-            defer file.close();
-
-            const content = if (file.readToEndAlloc(self.allocator, std.math.maxInt(usize))) |v| v else |_| return;
-            defer self.allocator.free(content);
-
-            const code = if (std.fmt.allocPrintZ(self.allocator, "{s}", .{content})) |v| v else |_| return;
-            defer self.allocator.free(code);
-
-            if (RuntimeShader.new(code.ptr, .Fragment)) |v| break :blk v else |_| return;
-        };
-        defer fragShader.destroy();
-
         var vertShader = blk: {
             const file = if (std.fs.cwd().openFile("assets/shaders/texture.vert", .{ .mode = .read_only })) |v| v else |_| return;
             defer file.close();
@@ -183,12 +169,26 @@ pub const Application = struct {
         };
         defer vertShader.destroy();
 
-        var pipeline = blk: {
-            var fragModule = if (VulkanShaderModule.new(&self.ctx.device, fragShader.size, fragShader.spirv)) |v| v else |_| return;
-            defer fragModule.destroy(&self.ctx.device);
+        var fragShader = blk: {
+            const file = if (std.fs.cwd().openFile("assets/shaders/texture.frag", .{ .mode = .read_only })) |v| v else |_| return;
+            defer file.close();
 
+            const content = if (file.readToEndAlloc(self.allocator, std.math.maxInt(usize))) |v| v else |_| return;
+            defer self.allocator.free(content);
+
+            const code = if (std.fmt.allocPrintZ(self.allocator, "{s}", .{content})) |v| v else |_| return;
+            defer self.allocator.free(code);
+
+            if (RuntimeShader.new(code.ptr, .Fragment)) |v| break :blk v else |_| return;
+        };
+        defer fragShader.destroy();
+
+        var pipeline = blk: {
             var vertModule = if (VulkanShaderModule.new(&self.ctx.device, vertShader.size, vertShader.spirv)) |v| v else |_| return;
             defer vertModule.destroy(&self.ctx.device);
+
+            var fragModule = if (VulkanShaderModule.new(&self.ctx.device, fragShader.size, fragShader.spirv)) |v| v else |_| return;
+            defer fragModule.destroy(&self.ctx.device);
 
             var bindings = [1]c.VkVertexInputBindingDescription{undefined};
             bindings[0].binding = 0;
@@ -209,8 +209,8 @@ pub const Application = struct {
 
             if (VulkanPipeline.new(
                 &self.ctx.device,
-                &fragModule,
                 &vertModule,
+                &fragModule,
                 &self.ctx.renderPass,
                 &attributes,
                 &bindings,
