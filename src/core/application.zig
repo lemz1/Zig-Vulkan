@@ -4,10 +4,13 @@ const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
 const glslang = vulkan.glslang;
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
-const cglslang = @cImport(@cInclude("glslang/Include/glslang_c_interface.h"));
 
+const bidings = glslang.glslang;
+
+const RuntimeShader = glslang.RuntimeShader;
 const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
+const VulkanShaderModule = vulkan.VulkanShaderModule;
 const VulkanPipeline = vulkan.VulkanPipeline;
 const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanImage = vulkan.VulkanImage;
@@ -32,61 +35,7 @@ pub const Application = struct {
     allocator: Allocator,
 
     pub fn new(options: ApplicationCreateOptions) !Application {
-        try glslang.load();
-
-        var input = cglslang.glslang_input_t{};
-        input.language = cglslang.GLSLANG_SOURCE_GLSL;
-        input.stage = cglslang.GLSLANG_STAGE_VERTEX;
-        input.client = cglslang.GLSLANG_CLIENT_VULKAN;
-        input.client_version = cglslang.GLSLANG_TARGET_VULKAN_1_3;
-        input.target_language = cglslang.GLSLANG_TARGET_SPV;
-        input.target_language_version = cglslang.GLSLANG_TARGET_SPV_1_6;
-        input.code =
-            \\ #version 450 core
-            \\ 
-            \\ vec2 positions[3] = vec2[](
-            \\   vec2(0.0, -0.5),
-            \\   vec2(0.5, 0.5),
-            \\   vec2(-0.5, 0.5)
-            \\ );
-            \\ 
-            \\ void main() {
-            \\   gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
-            \\ }
-        ;
-        input.default_version = 450;
-        input.default_profile = cglslang.GLSLANG_NO_PROFILE;
-        input.force_default_version_and_profile = 0;
-        input.forward_compatible = 0;
-        input.messages = cglslang.GLSLANG_MSG_DEFAULT_BIT;
-        input.resource = @ptrCast(glslang.defaultResource());
-
-        const shader = glslang.shaderCreate(@ptrCast(&input)) orelse @panic("shut");
-
-        if (!glslang.shaderPreprocess(shader, @ptrCast(&input))) {
-            @panic("shut 2");
-        }
-
-        if (!glslang.shaderParse(shader, @ptrCast(&input))) {
-            @panic("shut 3");
-        }
-
-        const program = glslang.programCreate() orelse @panic("shut 4");
-        glslang.programAddShader(program, shader);
-
-        if (!glslang.programLink(program)) {
-            @panic("shut 5");
-        }
-
-        glslang.programSPIRVGenerate(program, input.stage);
-        const size = glslang.programSPIRVGetSize(program);
-        const spirv = glslang.programSPIRVGetPtr(program);
-
-        if (glslang.programSPIRVGetMessages(program) != null) {
-            @panic("shut 6");
-        }
-
-        std.debug.print("{any}, {any}\n", .{ size, spirv });
+        try bidings.load();
 
         try GLFW.init();
 
@@ -106,7 +55,7 @@ pub const Application = struct {
         self.window.destroy();
         GLFW.deinit();
 
-        glslang.unload();
+        bidings.unload();
     }
 
     pub fn run(self: *Application) void {
@@ -206,7 +155,35 @@ pub const Application = struct {
             return;
         };
 
+        var fragShader = blk: {
+            const file = if (std.fs.cwd().openFile("assets/shaders/texture.frag", .{ .mode = .read_only })) |v| v else |_| return;
+            defer file.close();
+
+            const content = if (file.readToEndAlloc(self.allocator, std.math.maxInt(usize))) |v| v else |_| return;
+            defer self.allocator.free(content);
+
+            if (RuntimeShader.new(content.ptr, .Fragment)) |v| break :blk v else |_| return;
+        };
+        defer fragShader.destroy();
+
+        var vertShader = blk: {
+            const file = if (std.fs.cwd().openFile("assets/shaders/texture.vert", .{ .mode = .read_only })) |v| v else |_| return;
+            defer file.close();
+
+            const content = if (file.readToEndAlloc(self.allocator, std.math.maxInt(usize))) |v| v else |_| return;
+            defer self.allocator.free(content);
+
+            if (RuntimeShader.new(content.ptr, .Vertex)) |v| break :blk v else |_| return;
+        };
+        defer vertShader.destroy();
+
         var pipeline = blk: {
+            var fragModule = if (VulkanShaderModule.new(&self.ctx.device, fragShader.size, fragShader.spirv)) |v| v else |_| return;
+            defer fragModule.destroy(&self.ctx.device);
+
+            var vertModule = if (VulkanShaderModule.new(&self.ctx.device, vertShader.size, vertShader.spirv)) |v| v else |_| return;
+            defer vertModule.destroy(&self.ctx.device);
+
             var bindings = [1]c.VkVertexInputBindingDescription{undefined};
             bindings[0].binding = 0;
             bindings[0].inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX;
@@ -226,13 +203,12 @@ pub const Application = struct {
 
             if (VulkanPipeline.new(
                 &self.ctx.device,
-                "assets/shaders/texture.vert.spv",
-                "assets/shaders/texture.frag.spv",
+                &fragModule,
+                &vertModule,
                 &self.ctx.renderPass,
                 &attributes,
                 &bindings,
                 &layouts,
-                self.allocator,
             )) |v| break :blk v else |_| return;
         };
         defer pipeline.destroy(&self.ctx.device);

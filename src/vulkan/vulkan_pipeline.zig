@@ -20,20 +20,13 @@ pub const VulkanPipeline = struct {
 
     pub fn new(
         device: *const VulkanDevice,
-        vertPath: []const u8,
-        fragPath: []const u8,
+        vertModule: *const VulkanShaderModule,
+        fragModule: *const VulkanShaderModule,
         renderPass: *const VulkanRenderPass,
         attributeDescriptions: []const c.VkVertexInputAttributeDescription,
         bindingDescriptions: []const c.VkVertexInputBindingDescription,
         descriptorSetLayouts: []const c.VkDescriptorSetLayout,
-        allocator: Allocator,
     ) !VulkanPipeline {
-        var vertModule = try VulkanShaderModule.new(device, vertPath, allocator);
-        defer vertModule.destroy(device);
-
-        var fragModule = try VulkanShaderModule.new(device, fragPath, allocator);
-        defer fragModule.destroy(device);
-
         var shaderStages = [2]c.VkPipelineShaderStageCreateInfo{ undefined, undefined };
 
         shaderStages[0] = c.VkPipelineShaderStageCreateInfo{};

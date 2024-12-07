@@ -14,17 +14,11 @@ const VulkanShaderModuleError = error{
 pub const VulkanShaderModule = struct {
     handle: c.VkShaderModule,
 
-    pub fn new(device: *const VulkanDevice, filePath: []const u8, allocator: Allocator) !VulkanShaderModule {
-        const file = try std.fs.cwd().openFile(filePath, .{ .mode = .read_only });
-        defer file.close();
-
-        const content = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
-        defer allocator.free(content);
-
+    pub fn new(device: *const VulkanDevice, size: usize, spirv: [*c]const u32) !VulkanShaderModule {
         var createInfo = c.VkShaderModuleCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        createInfo.codeSize = @sizeOf(u8) * content.len;
-        createInfo.pCode = @ptrCast(@alignCast(content.ptr));
+        createInfo.codeSize = size;
+        createInfo.pCode = spirv;
 
         var shaderModule: c.VkShaderModule = undefined;
         switch (c.vkCreateShaderModule(device.handle, &createInfo, null, &shaderModule)) {
