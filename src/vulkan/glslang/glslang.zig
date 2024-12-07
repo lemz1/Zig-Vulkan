@@ -6,6 +6,7 @@ const c = @cImport({
 
 const GLSLangError = error{
     LoadFunction,
+    InitializeProcess,
 };
 
 var initialized: bool = false;
@@ -27,6 +28,10 @@ pub fn load() !void {
         @field(glslangResourceLimitsFunctions, field.name) = glslangResourceLimitsLib.lookup(field.type, field.name) orelse return GLSLangError.LoadFunction;
     }
 
+    if (!initializeProcess()) {
+        return GLSLangError.InitializeProcess;
+    }
+
     initialized = true;
 }
 
@@ -34,6 +39,8 @@ pub fn unload() void {
     if (!initialized) {
         return;
     }
+
+    finalizeProcess();
 
     glslangResourceLimitsLib.close();
     glslangResourceLimitsLib = undefined;

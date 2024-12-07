@@ -5,7 +5,7 @@ const util = @import("../util.zig");
 const glslang = vulkan.glslang;
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const bidings = glslang.glslang;
+const glslang_bindings = glslang.glslang;
 
 const RuntimeShader = glslang.RuntimeShader;
 const Allocator = std.mem.Allocator;
@@ -35,7 +35,7 @@ pub const Application = struct {
     allocator: Allocator,
 
     pub fn new(options: ApplicationCreateOptions) !Application {
-        try bidings.load();
+        try glslang_bindings.load();
 
         try GLFW.init();
 
@@ -55,7 +55,7 @@ pub const Application = struct {
         self.window.destroy();
         GLFW.deinit();
 
-        bidings.unload();
+        glslang_bindings.unload();
     }
 
     pub fn run(self: *Application) void {
@@ -162,7 +162,10 @@ pub const Application = struct {
             const content = if (file.readToEndAlloc(self.allocator, std.math.maxInt(usize))) |v| v else |_| return;
             defer self.allocator.free(content);
 
-            if (RuntimeShader.new(content.ptr, .Fragment)) |v| break :blk v else |_| return;
+            const code = if (std.fmt.allocPrintZ(self.allocator, "{s}", .{content})) |v| v else |_| return;
+            defer self.allocator.free(code);
+
+            if (RuntimeShader.new(code.ptr, .Fragment)) |v| break :blk v else |_| return;
         };
         defer fragShader.destroy();
 
@@ -173,7 +176,10 @@ pub const Application = struct {
             const content = if (file.readToEndAlloc(self.allocator, std.math.maxInt(usize))) |v| v else |_| return;
             defer self.allocator.free(content);
 
-            if (RuntimeShader.new(content.ptr, .Vertex)) |v| break :blk v else |_| return;
+            const code = if (std.fmt.allocPrintZ(self.allocator, "{s}", .{content})) |v| v else |_| return;
+            defer self.allocator.free(code);
+
+            if (RuntimeShader.new(code.ptr, .Vertex)) |v| break :blk v else |_| return;
         };
         defer vertShader.destroy();
 

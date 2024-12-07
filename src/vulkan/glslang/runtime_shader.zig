@@ -18,7 +18,7 @@ pub const RuntimeShader = struct {
         return .{
             .shader = shader,
             .program = program,
-            .size = program.getSPIRVSize(),
+            .size = program.getSPIRVSize() * @sizeOf(u32),
             .spirv = program.getSPIRVPtr(),
         };
     }
