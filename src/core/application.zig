@@ -2,7 +2,9 @@ const std = @import("std");
 const core = @import("../core.zig");
 const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
+const glslang = vulkan.glslang;
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
+const cglslang = @cImport(@cInclude("glslang/Include/glslang_c_interface.h"));
 
 const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
@@ -30,6 +32,62 @@ pub const Application = struct {
     allocator: Allocator,
 
     pub fn new(options: ApplicationCreateOptions) !Application {
+        try glslang.load();
+
+        var input = cglslang.glslang_input_t{};
+        input.language = cglslang.GLSLANG_SOURCE_GLSL;
+        input.stage = cglslang.GLSLANG_STAGE_VERTEX;
+        input.client = cglslang.GLSLANG_CLIENT_VULKAN;
+        input.client_version = cglslang.GLSLANG_TARGET_VULKAN_1_3;
+        input.target_language = cglslang.GLSLANG_TARGET_SPV;
+        input.target_language_version = cglslang.GLSLANG_TARGET_SPV_1_6;
+        input.code =
+            \\ #version 450 core
+            \\ 
+            \\ vec2 positions[3] = vec2[](
+            \\   vec2(0.0, -0.5),
+            \\   vec2(0.5, 0.5),
+            \\   vec2(-0.5, 0.5)
+            \\ );
+            \\ 
+            \\ void main() {
+            \\   gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+            \\ }
+        ;
+        input.default_version = 450;
+        input.default_profile = cglslang.GLSLANG_NO_PROFILE;
+        input.force_default_version_and_profile = 0;
+        input.forward_compatible = 0;
+        input.messages = cglslang.GLSLANG_MSG_DEFAULT_BIT;
+        input.resource = @ptrCast(glslang.defaultResource());
+
+        const shader = glslang.shaderCreate(@ptrCast(&input)) orelse @panic("shut");
+
+        if (!glslang.shaderPreprocess(shader, @ptrCast(&input))) {
+            @panic("shut 2");
+        }
+
+        if (!glslang.shaderParse(shader, @ptrCast(&input))) {
+            @panic("shut 3");
+        }
+
+        const program = glslang.programCreate() orelse @panic("shut 4");
+        glslang.programAddShader(program, shader);
+
+        if (!glslang.programLink(program)) {
+            @panic("shut 5");
+        }
+
+        glslang.programSPIRVGenerate(program, input.stage);
+        const size = glslang.programSPIRVGetSize(program);
+        const spirv = glslang.programSPIRVGetPtr(program);
+
+        if (glslang.programSPIRVGetMessages(program) != null) {
+            @panic("shut 6");
+        }
+
+        std.debug.print("{any}, {any}\n", .{ size, spirv });
+
         try GLFW.init();
 
         const window = try Window.create(1280, 720, "Vulkan");
@@ -47,6 +105,8 @@ pub const Application = struct {
         self.ctx.destroy();
         self.window.destroy();
         GLFW.deinit();
+
+        glslang.unload();
     }
 
     pub fn run(self: *Application) void {

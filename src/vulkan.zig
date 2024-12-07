@@ -18,3 +18,5 @@ pub const VulkanImage = @import("vulkan/vulkan_image.zig").VulkanImage;
 pub const VulkanSampler = @import("vulkan/vulkan_sampler.zig").VulkanSampler;
 pub const VulkanDescriptorPool = @import("vulkan/vulkan_descriptor_pool.zig").VulkanDescriptorPool;
 pub const VulkanDescriptorSet = @import("vulkan/vulkan_descriptor_set.zig").VulkanDescriptorSet;
+
+pub const glslang = @import("vulkan/glslang.zig");
