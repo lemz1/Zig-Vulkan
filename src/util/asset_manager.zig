@@ -13,15 +13,54 @@ const VulkanImage = vulkan.VulkanImage;
 const GLSLangShaderStage = glslang.GLSLangShaderStage;
 const RuntimeShader = glslang.RuntimeShader;
 
-const Asset = union(enum) {
-    image: VulkanImage,
-    shader: RuntimeShader,
+const AssetEntry = struct {
+    refCount: usize = 1,
+    asset: union(enum) {
+        image: VulkanImage,
+        shader: RuntimeShader,
+    },
+
+    pub fn release(self: *AssetEntry) void {
+        self.refCount -= 1;
+
+        if (self.refCount > 0) {
+            return;
+        }
+
+        switch (self.asset) {
+            .image => |*image| {
+                image.destroy(&data.ctx.device);
+            },
+            .shader => |*shader| {
+                shader.destroy();
+            },
+        }
+    }
 };
+
+fn AssetHandle(comptime T: type) type {
+    return struct {
+        entry: *AssetEntry,
+        asset: *T,
+
+        pub fn new(entry: *AssetEntry, asset: *T) @This() {
+            entry.refCount += 1;
+            return .{
+                .entry = entry,
+                .asset = asset,
+            };
+        }
+
+        pub fn release(self: *@This()) void {
+            self.entry.release();
+        }
+    };
+}
 
 var data = struct {
     initialized: bool = false,
     ctx: *const VulkanContext = undefined,
-    assets: StringHashMap(Asset) = undefined,
+    assets: StringHashMap(AssetEntry) = undefined,
 }{};
 
 pub const AssetManager = struct {
@@ -31,7 +70,7 @@ pub const AssetManager = struct {
         }
 
         data.ctx = ctx;
-        data.assets = StringHashMap(Asset).init(ctx.allocator);
+        data.assets = StringHashMap(AssetEntry).init(ctx.allocator);
 
         data.initialized = true;
     }
@@ -41,25 +80,41 @@ pub const AssetManager = struct {
             return;
         }
 
-        var it = data.assets.valueIterator();
-        while (it.next()) |asset| {
-            switch (asset.*) {
-                .image => |*image| {
-                    image.destroy(&data.ctx.device);
-                },
-                .shader => |*shader| {
-                    shader.destroy();
-                },
-            }
-        }
+        clearAllAssets();
 
         data.assets.deinit();
 
         data.initialized = true;
     }
 
-    pub fn loadImage(path: []const u8, format: ImageFormat) !*const VulkanImage {
-        const asset = data.assets.getPtr(path) orelse blk: {
+    pub fn clearAllAssets() void {
+        var it = data.assets.valueIterator();
+        while (it.next()) |entry| {
+            entry.release();
+        }
+        data.assets.clearAndFree();
+    }
+
+    pub fn clearUnusedAssets() void {
+        var assetsToRemove = std.ArrayList(*[]const u8).init(data.ctx.allocator);
+
+        var it = data.assets.iterator();
+        while (it.next()) |entry| {
+            if (entry.value_ptr.refCount > 1) {
+                continue;
+            }
+
+            entry.value_ptr.release();
+            assetsToRemove.append(entry.key_ptr) catch {};
+        }
+
+        for (assetsToRemove.items) |item| {
+            data.assets.remove(item.*);
+        }
+    }
+
+    pub fn loadImage(path: []const u8, format: ImageFormat) !AssetHandle(VulkanImage) {
+        const entry = data.assets.getPtr(path) orelse blk: {
             var imageData = try ImageData.load(path, format);
             defer imageData.destroy();
 
@@ -76,19 +131,31 @@ pub const AssetManager = struct {
                 c.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             );
 
-            try data.assets.put(path, .{ .image = image });
+            try data.assets.put(
+                path,
+                .{
+                    .asset = .{
+                        .image = image,
+                    },
+                },
+            );
             break :blk data.assets.getPtr(path);
         };
-        return &asset.?.image;
+        return AssetHandle(VulkanImage).new(entry.?, &entry.?.asset.image);
     }
 
-    pub fn loadShader(path: []const u8, stage: GLSLangShaderStage) !*const RuntimeShader {
-        const asset = data.assets.getPtr(path) orelse blk: {
-            try data.assets.put(path, .{
-                .shader = try RuntimeShader.fromFile(path, stage, data.ctx.allocator),
-            });
+    pub fn loadShader(path: []const u8, stage: GLSLangShaderStage) !AssetHandle(RuntimeShader) {
+        const entry = data.assets.getPtr(path) orelse blk: {
+            try data.assets.put(
+                path,
+                .{
+                    .asset = .{
+                        .shader = try RuntimeShader.fromFile(path, stage, data.ctx.allocator),
+                    },
+                },
+            );
             break :blk data.assets.getPtr(path);
         };
-        return &asset.?.shader;
+        return AssetHandle(RuntimeShader).new(entry.?, &entry.?.asset.shader);
     }
 };
