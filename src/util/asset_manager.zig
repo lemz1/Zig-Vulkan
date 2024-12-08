@@ -8,7 +8,7 @@ const Allocator = std.mem.Allocator;
 const StringHashMap = std.hash_map.StringHashMap;
 const ImageData = util.ImageData;
 const ImageFormat = util.ImageFormat;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const VulkanImage = vulkan.VulkanImage;
 const GLSLangShaderStage = glslang.GLSLangShaderStage;
 const RuntimeShader = glslang.RuntimeShader;
@@ -20,24 +20,23 @@ const Asset = union(enum) {
 
 var data = struct {
     initialized: bool = false,
-    allocator: Allocator = undefined,
+    ctx: *const VulkanContext = undefined,
     assets: StringHashMap(Asset) = undefined,
 }{};
 
 pub const AssetManager = struct {
-    pub fn init(allocator: Allocator) void {
+    pub fn init(ctx: *const VulkanContext) void {
         if (data.initialized) {
             return;
         }
 
-        data.allocator = allocator;
-
-        data.assets = StringHashMap(Asset).init(allocator);
+        data.ctx = ctx;
+        data.assets = StringHashMap(Asset).init(ctx.allocator);
 
         data.initialized = true;
     }
 
-    pub fn deinit(device: *const VulkanDevice) void {
+    pub fn deinit() void {
         if (!data.initialized) {
             return;
         }
@@ -46,7 +45,7 @@ pub const AssetManager = struct {
         while (it.next()) |asset| {
             switch (asset.*) {
                 .image => |*image| {
-                    image.destroy(device);
+                    image.destroy(&data.ctx.device);
                 },
                 .shader => |*shader| {
                     shader.destroy();
@@ -59,19 +58,19 @@ pub const AssetManager = struct {
         data.initialized = false;
     }
 
-    pub fn loadImage(device: *const VulkanDevice, path: []const u8, format: ImageFormat) !*const VulkanImage {
+    pub fn loadImage(path: []const u8, format: ImageFormat) !*const VulkanImage {
         const asset = data.assets.getPtr(path) orelse blk: {
             var imageData = try ImageData.load(path, format);
             defer imageData.destroy();
 
             const image = try VulkanImage.new(
-                device,
+                &data.ctx.device,
                 &imageData,
                 c.VK_IMAGE_USAGE_SAMPLED_BIT | c.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             );
 
             try image.uploadData(
-                device,
+                &data.ctx.device,
                 &imageData,
                 c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 c.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -86,7 +85,7 @@ pub const AssetManager = struct {
     pub fn loadShader(path: []const u8, stage: GLSLangShaderStage) !*const RuntimeShader {
         const asset = data.assets.getPtr(path) orelse blk: {
             try data.assets.put(path, .{
-                .shader = try RuntimeShader.fromFile(path, stage, data.allocator),
+                .shader = try RuntimeShader.fromFile(path, stage, data.ctx.allocator),
             });
             break :blk data.assets.getPtr(path);
         };

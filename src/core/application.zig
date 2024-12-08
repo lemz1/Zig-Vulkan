@@ -43,8 +43,6 @@ pub const Application = struct {
 
         const ctx = try VulkanContext.create(&window, options.vulkanOptions, options.allocator);
 
-        AssetManager.init(options.allocator);
-
         return .{
             .window = window,
             .ctx = ctx,
@@ -53,7 +51,6 @@ pub const Application = struct {
     }
 
     pub fn destroy(self: *Application) void {
-        AssetManager.deinit(&self.ctx.device);
         self.ctx.destroy();
         self.window.destroy();
         GLFW.deinit();
@@ -61,7 +58,10 @@ pub const Application = struct {
     }
 
     pub fn run(self: *Application) void {
-        const image = AssetManager.loadImage(&self.ctx.device, "assets/images/test.png", .RGBA8) catch return;
+        AssetManager.init(&self.ctx);
+        defer AssetManager.deinit();
+
+        const image = AssetManager.loadImage("assets/images/test.png", .RGBA8) catch return;
 
         var sampler = VulkanSampler.new(&self.ctx.device, .Linear, .Clamped) catch return;
         defer sampler.destroy(&self.ctx.device);
