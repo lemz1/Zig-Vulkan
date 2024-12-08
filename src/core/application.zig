@@ -60,14 +60,14 @@ pub const Application = struct {
 
     pub fn run(self: *Application) void {
         var image = blk: {
-            var data = if (ImageData.load("assets/images/test.png", .RGBA8)) |v| v else |_| return;
+            var data = ImageData.load("assets/images/test.png", .RGBA8) catch return;
             defer data.destroy();
 
-            const image = if (VulkanImage.new(
+            const image = VulkanImage.new(
                 &self.ctx.device,
                 &data,
                 c.VK_IMAGE_USAGE_SAMPLED_BIT | c.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-            )) |v| v else |_| return;
+            ) catch return;
 
             image.uploadData(
                 &self.ctx.device,
@@ -83,7 +83,7 @@ pub const Application = struct {
         };
         defer image.destroy(&self.ctx.device);
 
-        var sampler = if (VulkanSampler.new(&self.ctx.device, .Linear, .Clamped)) |v| v else |_| return;
+        var sampler = VulkanSampler.new(&self.ctx.device, .Linear, .Clamped) catch return;
         defer sampler.destroy(&self.ctx.device);
 
         var descriptorPool = blk: {
@@ -94,16 +94,13 @@ pub const Application = struct {
                 },
             };
 
-            if (VulkanDescriptorPool.new(&self.ctx.device, &sizes)) |v| break :blk v else |_| return;
+            break :blk VulkanDescriptorPool.new(&self.ctx.device, &sizes) catch return;
         };
         defer descriptorPool.destroy(&self.ctx.device);
 
-        var descriptorSet = blk: {
-            const descriptorSet = if (VulkanDescriptorSet.new(&self.ctx.device, &descriptorPool)) |v| v else |_| return;
-            descriptorSet.updateSampler(&self.ctx.device, &sampler, &image, 0, 1);
-            break :blk descriptorSet;
-        };
+        var descriptorSet = VulkanDescriptorSet.new(&self.ctx.device, &descriptorPool) catch return;
         defer descriptorSet.destroy(&self.ctx.device);
+        descriptorSet.updateSampler(&self.ctx.device, &sampler, &image, 0, 1);
 
         const vertices: []const f32 = &.{
             -0.5,
@@ -127,12 +124,12 @@ pub const Application = struct {
             1.0,
         };
 
-        var vertexBuffer = if (VulkanBuffer.new(
+        var vertexBuffer = VulkanBuffer.new(
             &self.ctx.device,
             @sizeOf(f32) * vertices.len,
             c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        )) |v| v else |_| return;
+        ) catch return;
         defer vertexBuffer.destroy(&self.ctx.device);
 
         vertexBuffer.uploadData(&self.ctx.device, vertices) catch {
@@ -142,12 +139,12 @@ pub const Application = struct {
 
         const indices: []const u32 = &.{ 0, 1, 2, 1, 3, 2 };
 
-        var indexBuffer = if (VulkanBuffer.new(
+        var indexBuffer = VulkanBuffer.new(
             &self.ctx.device,
             @sizeOf(f32) * vertices.len,
             c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        )) |v| v else |_| return;
+        ) catch return;
         defer indexBuffer.destroy(&self.ctx.device);
 
         indexBuffer.uploadData(&self.ctx.device, indices) catch {
@@ -155,39 +152,17 @@ pub const Application = struct {
             return;
         };
 
-        var vertShader = blk: {
-            const file = if (std.fs.cwd().openFile("assets/shaders/texture.vert", .{ .mode = .read_only })) |v| v else |_| return;
-            defer file.close();
-
-            const content = if (file.readToEndAlloc(self.allocator, std.math.maxInt(usize))) |v| v else |_| return;
-            defer self.allocator.free(content);
-
-            const code = if (std.fmt.allocPrintZ(self.allocator, "{s}", .{content})) |v| v else |_| return;
-            defer self.allocator.free(code);
-
-            if (RuntimeShader.new(code.ptr, .Vertex)) |v| break :blk v else |_| return;
-        };
+        var vertShader = RuntimeShader.fromFile("assets/shaders/texture.vert", .Vertex, self.allocator) catch return;
         defer vertShader.destroy();
 
-        var fragShader = blk: {
-            const file = if (std.fs.cwd().openFile("assets/shaders/texture.frag", .{ .mode = .read_only })) |v| v else |_| return;
-            defer file.close();
-
-            const content = if (file.readToEndAlloc(self.allocator, std.math.maxInt(usize))) |v| v else |_| return;
-            defer self.allocator.free(content);
-
-            const code = if (std.fmt.allocPrintZ(self.allocator, "{s}", .{content})) |v| v else |_| return;
-            defer self.allocator.free(code);
-
-            if (RuntimeShader.new(code.ptr, .Fragment)) |v| break :blk v else |_| return;
-        };
+        var fragShader = RuntimeShader.fromFile("assets/shaders/texture.frag", .Fragment, self.allocator) catch return;
         defer fragShader.destroy();
 
         var pipeline = blk: {
-            var vertModule = if (VulkanShaderModule.new(&self.ctx.device, vertShader.size, vertShader.spirv)) |v| v else |_| return;
+            var vertModule = VulkanShaderModule.new(&self.ctx.device, vertShader.size, vertShader.spirv) catch return;
             defer vertModule.destroy(&self.ctx.device);
 
-            var fragModule = if (VulkanShaderModule.new(&self.ctx.device, fragShader.size, fragShader.spirv)) |v| v else |_| return;
+            var fragModule = VulkanShaderModule.new(&self.ctx.device, fragShader.size, fragShader.spirv) catch return;
             defer fragModule.destroy(&self.ctx.device);
 
             var bindings = [1]c.VkVertexInputBindingDescription{undefined};
@@ -207,7 +182,7 @@ pub const Application = struct {
 
             const layouts = [1]c.VkDescriptorSetLayout{descriptorSet.layout};
 
-            if (VulkanPipeline.new(
+            break :blk VulkanPipeline.new(
                 &self.ctx.device,
                 &vertModule,
                 &fragModule,
@@ -215,7 +190,7 @@ pub const Application = struct {
                 &attributes,
                 &bindings,
                 &layouts,
-            )) |v| break :blk v else |_| return;
+            ) catch return;
         };
         defer pipeline.destroy(&self.ctx.device);
 
