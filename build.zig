@@ -200,7 +200,6 @@ fn addStb(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.Resolved
 }
 
 fn addGLSLang(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
-    compile.addLibraryPath(b.path("vnd/glslang"));
     compile.linkSystemLibrary("glslang");
     compile.linkSystemLibrary("glslang-default-resource-limits");
 
