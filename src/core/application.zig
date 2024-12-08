@@ -2,11 +2,10 @@ const std = @import("std");
 const core = @import("../core.zig");
 const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
-const glslang = vulkan.glslang;
+const glslang = @import("../glslang.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const glslang_bindings = glslang.glslang;
-
+const GLSLang = glslang.GLSLang;
 const RuntimeShader = glslang.RuntimeShader;
 const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
@@ -35,7 +34,7 @@ pub const Application = struct {
     allocator: Allocator,
 
     pub fn new(options: ApplicationCreateOptions) !Application {
-        try glslang_bindings.load();
+        try GLSLang.init();
 
         try GLFW.init();
 
@@ -54,8 +53,7 @@ pub const Application = struct {
         self.ctx.destroy();
         self.window.destroy();
         GLFW.deinit();
-
-        glslang_bindings.unload();
+        GLSLang.deinit();
     }
 
     pub fn run(self: *Application) void {

@@ -1,5 +1,7 @@
-const glslang = @import("glslang.zig");
+const glslang = @import("../glslang.zig");
 const c = @cImport(@cInclude("glslang/Include/glslang_c_interface.h"));
+
+const GLSLang = glslang.GLSLang;
 
 const GLSLangShaderError = error{
     CreateShader,
@@ -50,15 +52,15 @@ pub const GLSLangShader = struct {
         input.force_default_version_and_profile = 0;
         input.forward_compatible = 0;
         input.messages = c.GLSLANG_MSG_DEFAULT_BIT;
-        input.resource = @ptrCast(glslang.defaultResource());
+        input.resource = @ptrCast(GLSLang.defaultResource());
 
-        const shader = glslang.shaderCreate(@ptrCast(&input)) orelse return GLSLangShaderError.CreateShader;
+        const shader = GLSLang.shaderCreate(@ptrCast(&input)) orelse return GLSLangShaderError.CreateShader;
 
-        if (!glslang.shaderPreprocess(shader, @ptrCast(&input))) {
+        if (!GLSLang.shaderPreprocess(shader, @ptrCast(&input))) {
             return GLSLangShaderError.PreprocessShader;
         }
 
-        if (!glslang.shaderParse(shader, @ptrCast(&input))) {
+        if (!GLSLang.shaderParse(shader, @ptrCast(&input))) {
             return GLSLangShaderError.ParseShader;
         }
 
@@ -68,6 +70,6 @@ pub const GLSLangShader = struct {
     }
 
     pub fn destroy(self: *GLSLangShader) void {
-        glslang.shaderDelete(@ptrCast(self.handle));
+        GLSLang.shaderDelete(@ptrCast(self.handle));
     }
 };
