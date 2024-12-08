@@ -17,6 +17,7 @@ const VulkanSampler = vulkan.VulkanSampler;
 const VulkanDescriptorPool = vulkan.VulkanDescriptorPool;
 const VulkanDescriptorSet = vulkan.VulkanDescriptorSet;
 const VulkanContextCreateOptions = vulkan.VulkanContextCreateOptions;
+const AssetManager = util.AssetManager;
 const GLFW = core.GLFW;
 const Window = core.Window;
 const ImageData = util.ImageData;
@@ -42,6 +43,8 @@ pub const Application = struct {
 
         const ctx = try VulkanContext.create(&window, options.vulkanOptions, options.allocator);
 
+        AssetManager.init(options.allocator);
+
         return .{
             .window = window,
             .ctx = ctx,
@@ -50,6 +53,7 @@ pub const Application = struct {
     }
 
     pub fn destroy(self: *Application) void {
+        AssetManager.deinit(&self.ctx.device);
         self.ctx.destroy();
         self.window.destroy();
         GLFW.deinit();
@@ -57,29 +61,7 @@ pub const Application = struct {
     }
 
     pub fn run(self: *Application) void {
-        var image = blk: {
-            var data = ImageData.load("assets/images/test.png", .RGBA8) catch return;
-            defer data.destroy();
-
-            const image = VulkanImage.new(
-                &self.ctx.device,
-                &data,
-                c.VK_IMAGE_USAGE_SAMPLED_BIT | c.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-            ) catch return;
-
-            image.uploadData(
-                &self.ctx.device,
-                &data,
-                c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                c.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            ) catch {
-                std.debug.print("Failed to upload data to Image\n", .{});
-                return;
-            };
-
-            break :blk image;
-        };
-        defer image.destroy(&self.ctx.device);
+        const image = AssetManager.loadImage(&self.ctx.device, "assets/images/test.png", .RGBA8) catch return;
 
         var sampler = VulkanSampler.new(&self.ctx.device, .Linear, .Clamped) catch return;
         defer sampler.destroy(&self.ctx.device);
@@ -98,7 +80,7 @@ pub const Application = struct {
 
         var descriptorSet = VulkanDescriptorSet.new(&self.ctx.device, &descriptorPool) catch return;
         defer descriptorSet.destroy(&self.ctx.device);
-        descriptorSet.updateSampler(&self.ctx.device, &sampler, &image, 0, 1);
+        descriptorSet.updateSampler(&self.ctx.device, &sampler, image, 0, 1);
 
         const vertices: []const f32 = &.{
             -0.5,
@@ -150,11 +132,8 @@ pub const Application = struct {
             return;
         };
 
-        var vertShader = RuntimeShader.fromFile("assets/shaders/texture.vert", .Vertex, self.allocator) catch return;
-        defer vertShader.destroy();
-
-        var fragShader = RuntimeShader.fromFile("assets/shaders/texture.frag", .Fragment, self.allocator) catch return;
-        defer fragShader.destroy();
+        const vertShader = AssetManager.loadShader("assets/shaders/texture.vert", .Vertex) catch return;
+        const fragShader = AssetManager.loadShader("assets/shaders/texture.frag", .Fragment) catch return;
 
         var pipeline = blk: {
             var vertModule = VulkanShaderModule.new(&self.ctx.device, vertShader.size, vertShader.spirv) catch return;
