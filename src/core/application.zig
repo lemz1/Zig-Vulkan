@@ -61,8 +61,7 @@ pub const Application = struct {
         AssetManager.init(&self.ctx);
         defer AssetManager.deinit();
 
-        var image = AssetManager.loadImage("assets/images/test.png", .RGBA8) catch return;
-        defer image.release();
+        const image = AssetManager.loadImage("assets/images/test.png", .RGBA8) catch return;
 
         var sampler = VulkanSampler.new(&self.ctx.device, .Linear, .Clamped) catch return;
         defer sampler.destroy(&self.ctx.device);
@@ -81,7 +80,7 @@ pub const Application = struct {
 
         var descriptorSet = VulkanDescriptorSet.new(&self.ctx.device, &descriptorPool) catch return;
         defer descriptorSet.destroy(&self.ctx.device);
-        descriptorSet.updateSampler(&self.ctx.device, &sampler, &image.asset.image, 0, 1);
+        descriptorSet.updateSampler(&self.ctx.device, &sampler, image, 0, 1);
 
         const vertices: []const f32 = &.{
             -0.5,
@@ -133,17 +132,14 @@ pub const Application = struct {
             return;
         };
 
-        var vertShader = AssetManager.loadShader("assets/shaders/texture.vert", .Vertex) catch return;
-        defer vertShader.release();
-
+        const vertShader = AssetManager.loadShader("assets/shaders/texture.vert", .Vertex) catch return;
         const fragShader = AssetManager.loadShader("assets/shaders/texture.frag", .Fragment) catch return;
-        defer fragShader.release();
 
         var pipeline = blk: {
-            var vertModule = VulkanShaderModule.new(&self.ctx.device, vertShader.asset.shader.size, vertShader.asset.shader.spirv) catch return;
+            var vertModule = VulkanShaderModule.new(&self.ctx.device, vertShader.size, vertShader.spirv) catch return;
             defer vertModule.destroy(&self.ctx.device);
 
-            var fragModule = VulkanShaderModule.new(&self.ctx.device, fragShader.asset.shader.size, fragShader.asset.shader.spirv) catch return;
+            var fragModule = VulkanShaderModule.new(&self.ctx.device, fragShader.size, fragShader.spirv) catch return;
             defer fragModule.destroy(&self.ctx.device);
 
             var bindings = [1]c.VkVertexInputBindingDescription{undefined};
