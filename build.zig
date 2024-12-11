@@ -194,18 +194,93 @@ fn addZMath(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.Resolv
     compile.root_module.addImport("zmath", zmath.module("root"));
 }
 
-fn addStb(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
-    compile.addCSourceFile(.{ .file = b.path("src/vnd/stb/stb_image.c") });
+fn addStb(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void {
+    const stb = b.addStaticLibrary(.{
+        .name = "stb",
+        .target = target,
+        .optimize = optimize,
+    });
+    stb.linkLibC();
+    stb.addCSourceFile(.{ .file = b.path("src/vnd/stb/stb_image.c") });
+    stb.addIncludePath(b.path("vnd/stb"));
+
+    compile.linkLibrary(stb);
     compile.addIncludePath(b.path("vnd/stb"));
 }
 
-fn addGLSLang(compile: *std.Build.Step.Compile, b: *std.Build, _: std.Build.ResolvedTarget, _: std.builtin.OptimizeMode) void {
-    compile.linkSystemLibrary("glslang");
-    compile.linkSystemLibrary("glslang-default-resource-limits");
+fn addGLSLang(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void {
+    const glslang = b.addStaticLibrary(.{
+        .name = "glslang",
+        .target = target,
+        .optimize = optimize,
+    });
+    glslang.linkLibCpp();
+    glslang.addCSourceFiles(.{
+        .root = b.path("vnd/glslang/glslang"),
+        .flags = &.{},
+        .files = &.{
+            "stub.cpp",
 
-    var glslangStep = b.addInstallFile(b.path("vnd/glslang/glslang.dll"), "bin/glslang.dll");
-    var glslangResourceLimitsStep = b.addInstallFile(b.path("vnd/glslang/glslang-default-resource-limits.dll"), "bin/glslang-default-resource-limits.dll");
+            "OSDependent/Windows/ossource.cpp",
 
-    b.getInstallStep().dependOn(&glslangStep.step);
-    b.getInstallStep().dependOn(&glslangResourceLimitsStep.step);
+            "GenericCodeGen/CodeGen.cpp",
+            "GenericCodeGen/Link.cpp",
+
+            "MachineIndependent/glslang_tab.cpp",
+            "MachineIndependent/attribute.cpp",
+            "MachineIndependent/Constant.cpp",
+            "MachineIndependent/iomapper.cpp",
+            "MachineIndependent/InfoSink.cpp",
+            "MachineIndependent/Initialize.cpp",
+            "MachineIndependent/IntermTraverse.cpp",
+            "MachineIndependent/Intermediate.cpp",
+            "MachineIndependent/ParseContextBase.cpp",
+            "MachineIndependent/ParseHelper.cpp",
+            "MachineIndependent/PoolAlloc.cpp",
+            "MachineIndependent/RemoveTree.cpp",
+            "MachineIndependent/Scan.cpp",
+            "MachineIndependent/ShaderLang.cpp",
+            "MachineIndependent/SpirvIntrinsics.cpp",
+            "MachineIndependent/SymbolTable.cpp",
+            "MachineIndependent/Versions.cpp",
+            "MachineIndependent/intermOut.cpp",
+            "MachineIndependent/limits.cpp",
+            "MachineIndependent/linkValidate.cpp",
+            "MachineIndependent/parseConst.cpp",
+            "MachineIndependent/reflection.cpp",
+            "MachineIndependent/preprocessor/Pp.cpp",
+            "MachineIndependent/preprocessor/PpAtom.cpp",
+            "MachineIndependent/preprocessor/PpContext.cpp",
+            "MachineIndependent/preprocessor/PpScanner.cpp",
+            "MachineIndependent/preprocessor/PpTokens.cpp",
+            "MachineIndependent/propagateNoContraction.cpp",
+
+            "CInterface/glslang_c_interface.cpp",
+
+            "ResourceLimits/ResourceLimits.cpp",
+            "ResourceLimits/resource_limits_c.cpp",
+        },
+    });
+    glslang.addCSourceFiles(.{
+        .root = b.path("vnd/glslang/SPIRV"),
+        .flags = &.{},
+        .files = &.{
+            "GlslangToSpv.cpp",
+            "InReadableOrder.cpp",
+            "Logger.cpp",
+            "SpvBuilder.cpp",
+            "SpvPostProcess.cpp",
+            "doc.cpp",
+            "SpvTools.cpp",
+            "disassemble.cpp",
+            "CInterface/spirv_c_interface.cpp",
+            "SPVRemapper.cpp",
+            "doc.cpp",
+        },
+    });
+    glslang.addIncludePath(b.path("vnd/glslang/generated"));
+    glslang.addIncludePath(b.path("vnd/glslang"));
+
+    compile.linkLibrary(glslang);
+    compile.addIncludePath(b.path("vnd/glslang"));
 }

@@ -1,3 +1,7 @@
 [submodule "vnd/glfw"]
 	path = vnd/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "vnd/glslang"]
+	path = vnd/glslang
+	url = https://github.com/lemz1/glslang.git
+	branch = generated-files

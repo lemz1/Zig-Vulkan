@@ -1,5 +1,8 @@
 const glslang = @import("../glslang.zig");
-const c = @cImport(@cInclude("glslang/Include/glslang_c_interface.h"));
+const c = @cImport({
+    @cInclude("glslang/Include/glslang_c_interface.h");
+    @cInclude("glslang/Public/resource_limits_c.h");
+});
 
 const GLSLang = glslang.GLSLang;
 
@@ -17,21 +20,13 @@ pub const GLSLangShaderStage = enum(c.glslang_stage_t) {
     Fragment = c.GLSLANG_STAGE_FRAGMENT,
     Compute = c.GLSLANG_STAGE_COMPUTE,
     Raygen = c.GLSLANG_STAGE_RAYGEN,
-    //RaygenNV = c.GLSLANG_STAGE_RAYGEN_NV,
     Intersect = c.GLSLANG_STAGE_INTERSECT,
-    //IntersectNV = c.GLSLANG_STAGE_INTERSECT_NV,
     AnyHit = c.GLSLANG_STAGE_ANYHIT,
-    //AnyHitNV = c.GLSLANG_STAGE_ANYHIT_NV,
     ClosestHit = c.GLSLANG_STAGE_CLOSESTHIT,
-    //ClosestHitNV = c.GLSLANG_STAGE_CLOSESTHIT_NV,
     Miss = c.GLSLANG_STAGE_MISS,
-    //MissNV = c.GLSLANG_STAGE_MISS_NV,
     Callable = c.GLSLANG_STAGE_CALLABLE,
-    //CallableNV = c.GLSLANG_STAGE_CALLABLE_NV,
     Task = c.GLSLANG_STAGE_TASK,
-    //TaskNV = c.GLSLANG_STAGE_TASK_NV,
     Mesh = c.GLSLANG_STAGE_MESH,
-    //MeshNV = c.GLSLANG_STAGE_MESH_NV,
     Count = c.GLSLANG_STAGE_COUNT,
 };
 
@@ -52,24 +47,24 @@ pub const GLSLangShader = struct {
         input.force_default_version_and_profile = 0;
         input.forward_compatible = 0;
         input.messages = c.GLSLANG_MSG_DEFAULT_BIT;
-        input.resource = @ptrCast(GLSLang.defaultResource());
+        input.resource = c.glslang_default_resource();
 
-        const shader = GLSLang.shaderCreate(@ptrCast(&input)) orelse return GLSLangShaderError.CreateShader;
+        const shader = c.glslang_shader_create(&input) orelse return GLSLangShaderError.CreateShader;
 
-        if (!GLSLang.shaderPreprocess(shader, @ptrCast(&input))) {
+        if (c.glslang_shader_preprocess(shader, &input) == 0) {
             return GLSLangShaderError.PreprocessShader;
         }
 
-        if (!GLSLang.shaderParse(shader, @ptrCast(&input))) {
+        if (c.glslang_shader_parse(shader, &input) == 0) {
             return GLSLangShaderError.ParseShader;
         }
 
         return .{
-            .handle = @ptrCast(shader),
+            .handle = shader,
         };
     }
 
     pub fn destroy(self: *GLSLangShader) void {
-        GLSLang.shaderDelete(@ptrCast(self.handle));
+        c.glslang_shader_delete(self.handle);
     }
 };

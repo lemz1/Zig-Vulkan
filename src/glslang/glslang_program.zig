@@ -16,34 +16,34 @@ pub const GLSLangProgram = struct {
     handle: *c.glslang_program_t,
 
     pub fn new(shader: *const GLSLangShader, stage: GLSLangShaderStage) !GLSLangProgram {
-        const program = GLSLang.programCreate() orelse return GLSLangProgramError.CreateProgram;
-        GLSLang.programAddShader(program, @ptrCast(shader.handle));
+        const program = c.glslang_program_create() orelse return GLSLangProgramError.CreateProgram;
+        c.glslang_program_add_shader(program, @ptrCast(shader.handle));
 
-        if (!GLSLang.programLink(program)) {
+        if (c.glslang_program_link(program, c.GLSLANG_MSG_DEFAULT_BIT) == 0) {
             return GLSLangProgramError.LinkProgram;
         }
 
-        GLSLang.programSPIRVGenerate(program, @intFromEnum(stage));
+        c.glslang_program_SPIRV_generate(program, @intFromEnum(stage));
 
-        if (GLSLang.programSPIRVGetMessages(program) != null) {
-            std.debug.print("[GLSLang] Could not compile shader: {s}\n", .{GLSLang.programSPIRVGetMessages(program)});
+        if (c.glslang_program_SPIRV_get_messages(program) != null) {
+            std.debug.print("[GLSLang] Could not compile shader: {s}\n", .{c.glslang_program_SPIRV_get_messages(program)});
             return GLSLangProgramError.GenerateSPIRV;
         }
 
         return .{
-            .handle = @ptrCast(program),
+            .handle = program,
         };
     }
 
     pub fn getSPIRVSize(self: *const GLSLangProgram) usize {
-        return GLSLang.programSPIRVGetSize(@ptrCast(self.handle));
+        return c.glslang_program_SPIRV_get_size(self.handle);
     }
 
-    pub fn getSPIRVPtr(self: *const GLSLangProgram) [*c]u32 {
-        return GLSLang.programSPIRVGetPtr(@ptrCast(self.handle));
+    pub fn getSPIRVPtr(self: *const GLSLangProgram) [*c]c_uint {
+        return c.glslang_program_SPIRV_get_ptr(self.handle);
     }
 
     pub fn destroy(self: *GLSLangProgram) void {
-        GLSLang.programDelete(@ptrCast(self.handle));
+        c.glslang_program_delete(self.handle);
     }
 };
