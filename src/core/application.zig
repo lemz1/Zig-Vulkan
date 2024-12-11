@@ -20,6 +20,7 @@ const VulkanContextCreateOptions = vulkan.VulkanContextCreateOptions;
 const AssetManager = util.AssetManager;
 const GLFW = core.GLFW;
 const Window = core.Window;
+const Event = core.Event;
 const ImageData = util.ImageData;
 const vkCheck = @import("../vulkan/base.zig").vkCheck;
 
@@ -32,6 +33,10 @@ pub const Application = struct {
     window: Window,
     ctx: VulkanContext,
 
+    onCreate: Event(null),
+    onUpdate: Event(f32),
+    onDestroy: Event(null),
+
     allocator: Allocator,
 
     pub fn new(options: ApplicationCreateOptions) !Application {
@@ -43,14 +48,26 @@ pub const Application = struct {
 
         const ctx = try VulkanContext.create(&window, options.vulkanOptions, options.allocator);
 
+        const onCreate = Event(null).new(options.allocator);
+        const onUpdate = Event(f32).new(options.allocator);
+        const onDestroy = Event(null).new(options.allocator);
+
         return .{
             .window = window,
             .ctx = ctx,
+
+            .onCreate = onCreate,
+            .onUpdate = onUpdate,
+            .onDestroy = onDestroy,
+
             .allocator = options.allocator,
         };
     }
 
     pub fn destroy(self: *Application) void {
+        self.onDestroy.destroy();
+        self.onUpdate.destroy();
+        self.onCreate.destroy();
         self.ctx.destroy();
         self.window.destroy();
         GLFW.deinit();
@@ -177,9 +194,19 @@ pub const Application = struct {
 
         defer self.ctx.device.wait();
 
+        self.onCreate.dispatch();
+
+        var time: f32 = GLFW.getTime();
+
         var frameIndex: u32 = 0;
         while (!self.window.shouldClose()) {
             GLFW.pollEvents();
+
+            const newTime = GLFW.getTime();
+            const deltaTime = newTime - time;
+            time = newTime;
+
+            self.onUpdate.dispatch(deltaTime);
 
             const commandPool = self.ctx.commandPools[frameIndex];
             const commandBuffer = self.ctx.commandBuffers[frameIndex];
@@ -283,5 +310,7 @@ pub const Application = struct {
 
             frameIndex = (frameIndex + 1) % self.ctx.framesInFlight;
         }
+
+        self.onDestroy.dispatch();
     }
 };

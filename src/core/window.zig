@@ -63,6 +63,10 @@ pub const GLFW = struct {
         c.glfwPollEvents();
     }
 
+    pub fn getTime() f32 {
+        return @floatCast(c.glfwGetTime());
+    }
+
     pub fn instanceExtensions(count: *u32) [*c][*c]const u8 {
         return c.glfwGetRequiredInstanceExtensions(count);
     }
