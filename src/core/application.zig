@@ -24,6 +24,19 @@ const Event = core.Event;
 const ImageData = util.ImageData;
 const vkCheck = @import("../vulkan/base.zig").vkCheck;
 
+pub const OnCreateParams = struct {
+    app: *Application,
+};
+
+pub const OnUpdateParams = struct {
+    app: *Application,
+    deltaTime: f32,
+};
+
+pub const OnDestroyParams = struct {
+    app: *Application,
+};
+
 pub const ApplicationCreateOptions = struct {
     allocator: Allocator,
     vulkanOptions: VulkanContextCreateOptions = .{},
@@ -33,9 +46,9 @@ pub const Application = struct {
     window: Window,
     ctx: VulkanContext,
 
-    onCreate: Event(null),
-    onUpdate: Event(f32),
-    onDestroy: Event(null),
+    onCreate: Event(OnCreateParams),
+    onUpdate: Event(OnUpdateParams),
+    onDestroy: Event(OnDestroyParams),
 
     allocator: Allocator,
 
@@ -48,9 +61,9 @@ pub const Application = struct {
 
         const ctx = try VulkanContext.create(&window, options.vulkanOptions, options.allocator);
 
-        const onCreate = Event(null).new(options.allocator);
-        const onUpdate = Event(f32).new(options.allocator);
-        const onDestroy = Event(null).new(options.allocator);
+        const onCreate = Event(OnCreateParams).new(options.allocator);
+        const onUpdate = Event(OnUpdateParams).new(options.allocator);
+        const onDestroy = Event(OnDestroyParams).new(options.allocator);
 
         return .{
             .window = window,
@@ -75,10 +88,10 @@ pub const Application = struct {
     }
 
     pub fn run(self: *Application) void {
-        AssetManager.init(&self.ctx);
-        defer AssetManager.deinit();
+        var assetManager = AssetManager.new(&self.ctx);
+        defer assetManager.destroy();
 
-        var image = AssetManager.loadImage("assets/images/test.png", .RGBA8) catch return;
+        var image = assetManager.loadImage("assets/images/test.png", .RGBA8) catch return;
         defer image.release();
 
         var sampler = VulkanSampler.new(&self.ctx.device, .Linear, .Clamped) catch return;
@@ -150,10 +163,10 @@ pub const Application = struct {
             return;
         };
 
-        var vertShader = AssetManager.loadShader("assets/shaders/texture.vert", .Vertex) catch return;
+        var vertShader = assetManager.loadShader("assets/shaders/texture.vert", .Vertex) catch return;
         defer vertShader.release();
 
-        var fragShader = AssetManager.loadShader("assets/shaders/texture.frag", .Fragment) catch return;
+        var fragShader = assetManager.loadShader("assets/shaders/texture.frag", .Fragment) catch return;
         defer fragShader.release();
 
         var pipeline = blk: {
@@ -194,7 +207,7 @@ pub const Application = struct {
 
         defer self.ctx.device.wait();
 
-        self.onCreate.dispatch();
+        self.onCreate.dispatch(.{ .app = self });
 
         var time: f32 = GLFW.getTime();
 
@@ -206,7 +219,7 @@ pub const Application = struct {
             const deltaTime = newTime - time;
             time = newTime;
 
-            self.onUpdate.dispatch(deltaTime);
+            self.onUpdate.dispatch(.{ .app = self, .deltaTime = deltaTime });
 
             const commandPool = self.ctx.commandPools[frameIndex];
             const commandBuffer = self.ctx.commandBuffers[frameIndex];
@@ -316,6 +329,6 @@ pub const Application = struct {
             frameIndex = (frameIndex + 1) % self.ctx.framesInFlight;
         }
 
-        self.onDestroy.dispatch();
+        self.onDestroy.dispatch(.{ .app = self });
     }
 };
