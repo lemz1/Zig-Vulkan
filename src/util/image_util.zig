@@ -5,11 +5,13 @@ const c = @cImport({
 
 const ImageDataError = error{
     LoadImage,
+    InvalidFormat,
 };
 
 pub const ImageFormat = enum(c.VkFormat) {
     RGBA8 = c.VK_FORMAT_R8G8B8A8_UNORM,
     RGBA32 = c.VK_FORMAT_R32G32B32A32_SFLOAT,
+    Depth32 = c.VK_FORMAT_D32_SFLOAT,
 };
 
 pub const ImageData = struct {
@@ -21,15 +23,22 @@ pub const ImageData = struct {
     pixels: ?*anyopaque,
 
     pub fn empty(width: u32, height: u32, format: ImageFormat) ImageData {
+        const channels: u32 = switch (format) {
+            .RGBA8, .RGBA32 => 4,
+            .Depth32 => 1,
+        };
+
+        const sizeOfPixel: u32 = switch (format) {
+            .RGBA8 => @sizeOf(u8),
+            .RGBA32, .Depth32 => @sizeOf(f32),
+        };
+
         return .{
             .width = width,
             .height = height,
-            .channels = 4,
+            .channels = channels,
             .format = format,
-            .size = width * height * 4 * switch (format) {
-                .RGBA8 => @sizeOf(u8),
-                .RGBA32 => @sizeOf(f32),
-            },
+            .size = width * height * channels * sizeOfPixel,
             .pixels = null,
         };
     }
@@ -41,6 +50,7 @@ pub const ImageData = struct {
         const pixels: ?*anyopaque = switch (format) {
             .RGBA8 => c.stbi_load(path.ptr, &width, &height, &channels, 4),
             .RGBA32 => c.stbi_loadf(path.ptr, &width, &height, &channels, 4),
+            else => return ImageDataError.InvalidFormat,
         };
 
         if (pixels == null) {
@@ -52,7 +62,7 @@ pub const ImageData = struct {
 
         const pixelSize: usize = switch (format) {
             .RGBA8 => @sizeOf(u8) * 4,
-            .RGBA32 => @sizeOf(f32) * 4,
+            .RGBA32, .Depth32 => @sizeOf(f32) * 4,
         };
         const size: usize = uWidth * uHeight * pixelSize;
 

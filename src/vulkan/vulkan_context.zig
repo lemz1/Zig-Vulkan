@@ -2,15 +2,18 @@ const std = @import("std");
 const builtin = @import("builtin");
 const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
+const util = @import("../util.zig");
 const core = @import("../core.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
+const ImageData = util.ImageData;
 const VulkanInstance = vulkan.VulkanInstance;
 const VulkanDevice = vulkan.VulkanDevice;
 const VulkanSurface = vulkan.VulkanSurface;
 const VulkanSwapchain = vulkan.VulkanSwapchain;
 const VulkanFramebuffer = vulkan.VulkanFramebuffer;
+const VulkanImage = vulkan.VulkanImage;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
@@ -36,6 +39,7 @@ pub const VulkanContext = struct {
     device: VulkanDevice,
     surface: VulkanSurface,
     swapchain: VulkanSwapchain,
+    depthbuffers: []VulkanImage,
     framebuffers: []VulkanFramebuffer,
     renderPass: VulkanRenderPass,
     commandPools: []VulkanCommandPool,
@@ -73,15 +77,32 @@ pub const VulkanContext = struct {
             c.VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         };
 
-        const instance = try VulkanInstance.new(enableValidationLayers, @intCast(validationLayers.len), validationLayers.ptr, @intCast(instanceExtensions.len), instanceExtensions.ptr, allocator);
+        const instance = try VulkanInstance.new(
+            enableValidationLayers,
+            @intCast(validationLayers.len),
+            validationLayers.ptr,
+            @intCast(instanceExtensions.len),
+            instanceExtensions.ptr,
+            allocator,
+        );
         const device = try VulkanDevice.new(&instance, @intCast(deviceExtensions.len), deviceExtensions.ptr, allocator);
         const surface = try VulkanSurface.new(&instance, window);
         const swapchain = try VulkanSwapchain.new(&device, &surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, null, allocator);
         const renderPass = try VulkanRenderPass.new(&device, swapchain.format);
 
+        const depthbuffers = try allocator.alloc(VulkanImage, swapchain.images.len);
         const framebuffers = try allocator.alloc(VulkanFramebuffer, swapchain.images.len);
         for (0..swapchain.images.len) |i| {
-            framebuffers[i] = try VulkanFramebuffer.new(&device, &renderPass, 1, &swapchain.imageViews[i], swapchain.width, swapchain.height);
+            depthbuffers[i] = try VulkanImage.new(
+                &device,
+                &ImageData.empty(swapchain.width, swapchain.height, .Depth32),
+                c.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            );
+            const attachments = [_]c.VkImageView{
+                swapchain.imageViews[i],
+                depthbuffers[i].view,
+            };
+            framebuffers[i] = try VulkanFramebuffer.new(&device, &renderPass, @intCast(attachments.len), &attachments, swapchain.width, swapchain.height);
         }
 
         const commandPools = try allocator.alloc(VulkanCommandPool, framesInFlight);
@@ -109,6 +130,7 @@ pub const VulkanContext = struct {
             .device = device,
             .surface = surface,
             .swapchain = swapchain,
+            .depthbuffers = depthbuffers,
             .framebuffers = framebuffers,
             .renderPass = renderPass,
             .commandPools = commandPools,
@@ -132,8 +154,9 @@ pub const VulkanContext = struct {
             self.fences[i].destroy(&self.device);
         }
 
-        for (self.framebuffers) |*framebuffer| {
-            framebuffer.destroy(&self.device);
+        for (0..self.framebuffers.len) |i| {
+            self.framebuffers[i].destroy(&self.device);
+            self.depthbuffers[i].destroy(&self.device);
         }
 
         self.renderPass.destroy(&self.device);
@@ -148,6 +171,7 @@ pub const VulkanContext = struct {
         self.allocator.free(self.commandBuffers);
         self.allocator.free(self.commandPools);
         self.allocator.free(self.framebuffers);
+        self.allocator.free(self.depthbuffers);
     }
 
     pub fn recreateSwapchain(self: *VulkanContext) !void {
@@ -166,18 +190,30 @@ pub const VulkanContext = struct {
         self.renderPass.destroy(&self.device);
         self.renderPass = try VulkanRenderPass.new(&self.device, self.swapchain.format);
 
-        for (self.framebuffers) |*framebuffer| {
-            framebuffer.destroy(&self.device);
+        for (0..self.framebuffers.len) |i| {
+            self.framebuffers[i].destroy(&self.device);
+            self.depthbuffers[i].destroy(&self.device);
         }
         self.allocator.free(self.framebuffers);
+        self.allocator.free(self.depthbuffers);
+        self.depthbuffers = try self.allocator.alloc(VulkanImage, self.swapchain.images.len);
         self.framebuffers = try self.allocator.alloc(VulkanFramebuffer, self.swapchain.images.len);
 
         for (0..self.framebuffers.len) |i| {
+            self.depthbuffers[i] = try VulkanImage.new(
+                &self.device,
+                &ImageData.empty(self.swapchain.width, self.swapchain.height, .Depth32),
+                c.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            );
+            const attachments = [_]c.VkImageView{
+                self.swapchain.imageViews[i],
+                self.depthbuffers[i].view,
+            };
             self.framebuffers[i] = try VulkanFramebuffer.new(
                 &self.device,
                 &self.renderPass,
-                1,
-                &self.swapchain.imageViews[i],
+                @intCast(attachments.len),
+                &attachments,
                 self.swapchain.width,
                 self.swapchain.height,
             );

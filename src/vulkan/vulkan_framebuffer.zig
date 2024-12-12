@@ -17,7 +17,14 @@ pub const VulkanFramebuffer = struct {
     width: u32,
     height: u32,
 
-    pub fn new(device: *const VulkanDevice, renderPass: *const VulkanRenderPass, attachmentCount: u32, attachments: [*c]const c.VkImageView, width: u32, height: u32) !VulkanFramebuffer {
+    pub fn new(
+        device: *const VulkanDevice,
+        renderPass: *const VulkanRenderPass,
+        attachmentCount: u32,
+        attachments: [*c]const c.VkImageView,
+        width: u32,
+        height: u32,
+    ) !VulkanFramebuffer {
         var createInfo = c.VkFramebufferCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         createInfo.renderPass = renderPass.handle;

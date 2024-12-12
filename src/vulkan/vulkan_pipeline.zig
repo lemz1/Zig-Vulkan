@@ -77,6 +77,14 @@ pub const VulkanPipeline = struct {
         multisampleState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampleState.rasterizationSamples = c.VK_SAMPLE_COUNT_1_BIT;
 
+        var depthStencilState = c.VkPipelineDepthStencilStateCreateInfo{};
+        depthStencilState.sType = c.VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depthStencilState.depthTestEnable = c.VK_TRUE;
+        depthStencilState.depthWriteEnable = c.VK_TRUE;
+        depthStencilState.depthCompareOp = c.VK_COMPARE_OP_LESS;
+        depthStencilState.minDepthBounds = 0.0;
+        depthStencilState.maxDepthBounds = 1.0;
+
         var colorBlendAttachment = c.VkPipelineColorBlendAttachmentState{};
         colorBlendAttachment.colorWriteMask = c.VK_COLOR_COMPONENT_R_BIT | c.VK_COLOR_COMPONENT_G_BIT | c.VK_COLOR_COMPONENT_B_BIT | c.VK_COLOR_COMPONENT_A_BIT;
         colorBlendAttachment.blendEnable = c.VK_TRUE;
@@ -125,6 +133,7 @@ pub const VulkanPipeline = struct {
             createInfo.pViewportState = &viewportState;
             createInfo.pRasterizationState = &rasterizationState;
             createInfo.pMultisampleState = &multisampleState;
+            createInfo.pDepthStencilState = &depthStencilState;
             createInfo.pColorBlendState = &colorBlendState;
             createInfo.pDynamicState = &dynamicState;
             createInfo.layout = pipelineLayout;

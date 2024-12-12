@@ -242,9 +242,14 @@ pub const Application = struct {
                 commandBuffer.setViewport(@floatFromInt(self.ctx.swapchain.width), @floatFromInt(self.ctx.swapchain.height));
                 commandBuffer.setScissor(self.ctx.swapchain.width, self.ctx.swapchain.height);
 
-                var clearValue = c.VkClearValue{
-                    .color = .{
-                        .float32 = [4]f32{ 0.1, 0.1, 0.1, 1.0 },
+                const clearValues = [2]c.VkClearValue{
+                    .{
+                        .color = .{
+                            .float32 = [4]f32{ 0.1, 0.1, 0.1, 1.0 },
+                        },
+                    },
+                    .{
+                        .depthStencil = .{ .depth = 1.0, .stencil = 0.0 },
                     },
                 };
 
@@ -256,8 +261,8 @@ pub const Application = struct {
                     .offset = .{ .x = 0, .y = 0 },
                     .extent = .{ .width = self.ctx.swapchain.width, .height = self.ctx.swapchain.height },
                 };
-                beginInfo.clearValueCount = 1;
-                beginInfo.pClearValues = &clearValue;
+                beginInfo.clearValueCount = @intCast(clearValues.len);
+                beginInfo.pClearValues = &clearValues;
                 commandBuffer.beginRenderPass(&beginInfo);
 
                 commandBuffer.bindGraphicsPipeline(&pipeline);

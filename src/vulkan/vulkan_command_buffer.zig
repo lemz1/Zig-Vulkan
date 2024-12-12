@@ -93,6 +93,8 @@ pub const VulkanCommandBuffer = struct {
             .y = 0.0,
             .width = width,
             .height = height,
+            .minDepth = 0.0,
+            .maxDepth = 1.0,
         };
         c.vkCmdSetViewport(self.handle, 0, 1, &viewport);
     }
