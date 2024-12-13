@@ -3,9 +3,15 @@ const core = @import("../core.zig");
 const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
 const glslang = @import("../glslang.zig");
+const spvc = @import("../spvc.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const GLSLang = glslang.GLSLang;
+const SPVCContext = spvc.SPVCContext;
+const SPVCParsedIR = spvc.SPVCParsedIR;
+const SPVCCompiler = spvc.SPVCCompiler;
+const SPVCResources = spvc.SPVCResources;
+const SPVCType = spvc.SPVCType;
 const RuntimeShader = glslang.RuntimeShader;
 const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
@@ -45,6 +51,7 @@ pub const ApplicationCreateOptions = struct {
 pub const Application = struct {
     window: Window,
     ctx: VulkanContext,
+    spvcCtx: SPVCContext,
 
     onCreate: Event(OnCreateParams),
     onUpdate: Event(OnUpdateParams),
@@ -54,6 +61,8 @@ pub const Application = struct {
 
     pub fn new(options: ApplicationCreateOptions) !Application {
         try GLSLang.init();
+
+        const spvcCtx = try SPVCContext.new();
 
         try GLFW.init();
 
@@ -68,6 +77,7 @@ pub const Application = struct {
         return .{
             .window = window,
             .ctx = ctx,
+            .spvcCtx = spvcCtx,
 
             .onCreate = onCreate,
             .onUpdate = onUpdate,
@@ -84,6 +94,7 @@ pub const Application = struct {
         self.ctx.destroy();
         self.window.destroy();
         GLFW.deinit();
+        self.spvcCtx.destroy();
         GLSLang.deinit();
     }
 
@@ -228,10 +239,10 @@ pub const Application = struct {
         defer fragShader.release();
 
         var pipeline = blk: {
-            var vertModule = VulkanShaderModule.new(&self.ctx.device, vertShader.asset.size, vertShader.asset.spirv) catch return;
+            var vertModule = VulkanShaderModule.new(&self.ctx.device, vertShader.asset.spirvSize, vertShader.asset.spirvCode) catch return;
             defer vertModule.destroy(&self.ctx.device);
 
-            var fragModule = VulkanShaderModule.new(&self.ctx.device, fragShader.asset.size, fragShader.asset.spirv) catch return;
+            var fragModule = VulkanShaderModule.new(&self.ctx.device, fragShader.asset.spirvSize, fragShader.asset.spirvCode) catch return;
             defer fragModule.destroy(&self.ctx.device);
 
             var bindings = [1]c.VkVertexInputBindingDescription{undefined};

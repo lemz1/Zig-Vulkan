@@ -5,3 +5,6 @@
 	path = vnd/glslang
 	url = https://github.com/lemz1/glslang.git
 	branch = generated-files
+[submodule "vnd/SPIRV-Cross"]
+	path = vnd/SPIRV-Cross
+	url = https://github.com/KhronosGroup/SPIRV-Cross.git

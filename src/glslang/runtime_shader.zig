@@ -9,8 +9,9 @@ const GLSLangProgram = glslang.GLSLangProgram;
 pub const RuntimeShader = struct {
     shader: GLSLangShader,
     program: GLSLangProgram,
-    size: usize,
-    spirv: [*c]u32,
+    spirvWords: usize,
+    spirvSize: usize,
+    spirvCode: [*c]u32,
 
     pub fn new(code: [*c]const u8, stage: GLSLangShaderStage) !RuntimeShader {
         const shader = try GLSLangShader.new(code, stage);
@@ -19,8 +20,9 @@ pub const RuntimeShader = struct {
         return .{
             .shader = shader,
             .program = program,
-            .size = program.getSPIRVSize() * @sizeOf(u32),
-            .spirv = program.getSPIRVPtr(),
+            .spirvWords = program.getSPIRVSize(),
+            .spirvSize = program.getSPIRVSize() * @sizeOf(u32),
+            .spirvCode = program.getSPIRVPtr(),
         };
     }
 

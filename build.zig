@@ -31,6 +31,7 @@ pub fn build(b: *std.Build) void {
     addZMath(exe, b, target, optimize);
     addStb(exe, b, target, optimize);
     addGLSLang(exe, b, target, optimize);
+    addSPIRVCross(exe, b, target, optimize);
 
     var copyAssetsStep = b.addInstallDirectory(.{
         .source_dir = b.path("assets"),
@@ -283,4 +284,33 @@ fn addGLSLang(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build
 
     compile.linkLibrary(glslang);
     compile.addIncludePath(b.path("vnd/glslang"));
+}
+
+fn addSPIRVCross(compile: *std.Build.Step.Compile, b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void {
+    const spirvCross = b.addStaticLibrary(.{
+        .name = "SPIRV-Cross",
+        .target = target,
+        .optimize = optimize,
+    });
+    spirvCross.linkLibCpp();
+    spirvCross.addCSourceFiles(.{
+        .root = b.path("vnd/SPIRV-Cross"),
+        .flags = &.{},
+        .files = &.{
+            "spirv_cross.cpp",
+            "spirv_parser.cpp",
+            "spirv_cross_parsed_ir.cpp",
+            "spirv_cfg.cpp",
+            "spirv_cross_c.cpp",
+            "spirv_glsl.cpp",
+            "spirv_cpp.cpp",
+            "spirv_msl.cpp",
+            "spirv_hlsl.cpp",
+            "spirv_reflect.cpp",
+            "spirv_cross_util.cpp",
+        },
+    });
+
+    compile.addIncludePath(b.path("vnd/SPIRV-Cross"));
+    compile.linkLibrary(spirvCross);
 }
