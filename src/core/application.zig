@@ -109,9 +109,67 @@ pub const Application = struct {
         };
         defer descriptorPool.destroy(&self.ctx.device);
 
-        var descriptorSet = VulkanDescriptorSet.new(&self.ctx.device, &descriptorPool) catch return;
+        var descriptorSet = blk: {
+            var bindings = [1]c.VkDescriptorSetLayoutBinding{undefined};
+            bindings[0].binding = 0;
+            bindings[0].descriptorCount = 1;
+            bindings[0].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            bindings[0].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
+            bindings[0].pImmutableSamplers = null;
+
+            break :blk VulkanDescriptorSet.new(&self.ctx.device, &descriptorPool, 1, &bindings) catch return;
+        };
         defer descriptorSet.destroy(&self.ctx.device);
-        descriptorSet.updateSampler(&self.ctx.device, &sampler, image.asset, 0, 1);
+        descriptorSet.updateSampler(&self.ctx.device, &sampler, image.asset, 0);
+
+        const modelUniformBuffers = self.allocator.alloc(VulkanBuffer, self.ctx.framesInFlight) catch return;
+        defer self.allocator.free(modelUniformBuffers);
+        for (0..modelUniformBuffers.len) |i| {
+            modelUniformBuffers[i] = VulkanBuffer.new(
+                &self.ctx.device,
+                @sizeOf(f32) * 2,
+                c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            ) catch return;
+            const data: []const f32 = &.{ 0.1, 0.2 };
+            modelUniformBuffers[i].uploadData(&self.ctx.device, data) catch return;
+        }
+        defer {
+            for (modelUniformBuffers) |*buffer| {
+                buffer.destroy(&self.ctx.device);
+            }
+        }
+
+        var modelDescriptorPool = blk: {
+            const sizes = [1]c.VkDescriptorPoolSize{
+                .{
+                    .descriptorCount = self.ctx.framesInFlight,
+                    .type = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                },
+            };
+
+            break :blk VulkanDescriptorPool.new(&self.ctx.device, &sizes) catch return;
+        };
+        defer modelDescriptorPool.destroy(&self.ctx.device);
+
+        const modelDescriptorSets = self.allocator.alloc(VulkanDescriptorSet, self.ctx.framesInFlight) catch return;
+        defer self.allocator.free(modelDescriptorSets);
+        for (0..modelDescriptorSets.len) |i| {
+            var bindings = [1]c.VkDescriptorSetLayoutBinding{undefined};
+            bindings[0].binding = 0;
+            bindings[0].descriptorCount = 1;
+            bindings[0].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            bindings[0].stageFlags = c.VK_SHADER_STAGE_VERTEX_BIT;
+            bindings[0].pImmutableSamplers = null;
+
+            modelDescriptorSets[i] = VulkanDescriptorSet.new(&self.ctx.device, &modelDescriptorPool, 1, &bindings) catch return;
+            modelDescriptorSets[i].updateBuffer(&self.ctx.device, &modelUniformBuffers[i], @sizeOf(f32) * 2, 0);
+        }
+        defer {
+            for (modelDescriptorSets) |*set| {
+                set.destroy(&self.ctx.device);
+            }
+        }
 
         const vertices: []const f32 = &.{
             -0.5,
@@ -191,7 +249,10 @@ pub const Application = struct {
             attributes[1].format = c.VK_FORMAT_R32G32_SFLOAT;
             attributes[1].offset = @sizeOf(f32) * 2;
 
-            const layouts = [1]c.VkDescriptorSetLayout{descriptorSet.layout};
+            const layouts: []const c.VkDescriptorSetLayout = &.{
+                descriptorSet.layout,
+                modelDescriptorSets[0].layout,
+            };
 
             break :blk VulkanPipeline.new(
                 &self.ctx.device,
@@ -200,7 +261,7 @@ pub const Application = struct {
                 &self.ctx.renderPass,
                 &attributes,
                 &bindings,
-                &layouts,
+                layouts,
             ) catch return;
         };
         defer pipeline.destroy(&self.ctx.device);
@@ -282,7 +343,13 @@ pub const Application = struct {
 
                 commandBuffer.bindVertexBuffer(&vertexBuffer, 0);
                 commandBuffer.bindIndexBuffer(&indexBuffer, 0);
-                commandBuffer.bindDescriptorSet(&pipeline, &descriptorSet);
+                commandBuffer.bindDescriptorSets(
+                    &pipeline,
+                    &.{
+                        descriptorSet.handle,
+                        modelDescriptorSets[frameIndex].handle,
+                    },
+                );
                 commandBuffer.drawIndexed(indices.len);
 
                 commandBuffer.endRenderPass();

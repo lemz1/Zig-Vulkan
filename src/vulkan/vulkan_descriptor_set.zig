@@ -7,6 +7,7 @@ const VulkanDevice = vulkan.VulkanDevice;
 const VulkanDescriptorPool = vulkan.VulkanDescriptorPool;
 const VulkanSampler = vulkan.VulkanSampler;
 const VulkanImage = vulkan.VulkanImage;
+const VulkanBuffer = vulkan.VulkanBuffer;
 const vkCheck = base.vkCheck;
 
 const VulkanDescriptorSetError = error{
@@ -19,20 +20,18 @@ pub const VulkanDescriptorSet = struct {
     handle: c.VkDescriptorSet,
     layout: c.VkDescriptorSetLayout,
 
-    pub fn new(device: *const VulkanDevice, descriptorPool: *const VulkanDescriptorPool) !VulkanDescriptorSet {
+    pub fn new(
+        device: *const VulkanDevice,
+        descriptorPool: *const VulkanDescriptorPool,
+        bindingCount: u32,
+        bindings: [*c]const c.VkDescriptorSetLayoutBinding,
+    ) !VulkanDescriptorSet {
         var desciptorSetLayout: c.VkDescriptorSetLayout = undefined;
         {
-            var bindings = [1]c.VkDescriptorSetLayoutBinding{undefined};
-            bindings[0].binding = 0;
-            bindings[0].descriptorCount = 1;
-            bindings[0].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            bindings[0].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
-            bindings[0].pImmutableSamplers = null;
-
             var createInfo = c.VkDescriptorSetLayoutCreateInfo{};
             createInfo.sType = c.VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            createInfo.bindingCount = @intCast(bindings.len);
-            createInfo.pBindings = &bindings;
+            createInfo.bindingCount = bindingCount;
+            createInfo.pBindings = bindings;
 
             switch (c.vkCreateDescriptorSetLayout(device.handle, &createInfo, null, &desciptorSetLayout)) {
                 c.VK_SUCCESS => {},
@@ -75,7 +74,6 @@ pub const VulkanDescriptorSet = struct {
         sampler: *const VulkanSampler,
         image: *const VulkanImage,
         binding: u32,
-        descriptorCount: u32,
     ) void {
         var imageInfo = c.VkDescriptorImageInfo{};
         imageInfo.sampler = sampler.handle;
@@ -86,9 +84,32 @@ pub const VulkanDescriptorSet = struct {
         descriptorWrites[0].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[0].dstSet = self.handle;
         descriptorWrites[0].dstBinding = binding;
-        descriptorWrites[0].descriptorCount = descriptorCount;
+        descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         descriptorWrites[0].pImageInfo = &imageInfo;
+
+        c.vkUpdateDescriptorSets(device.handle, @intCast(descriptorWrites.len), &descriptorWrites, 0, null);
+    }
+
+    pub fn updateBuffer(
+        self: *const VulkanDescriptorSet,
+        device: *const VulkanDevice,
+        buffer: *const VulkanBuffer,
+        size: c.VkDeviceSize,
+        binding: u32,
+    ) void {
+        var bufferInfo = c.VkDescriptorBufferInfo{};
+        bufferInfo.buffer = buffer.handle;
+        bufferInfo.offset = 0;
+        bufferInfo.range = size;
+
+        var descriptorWrites = [1]c.VkWriteDescriptorSet{undefined};
+        descriptorWrites[0].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = self.handle;
+        descriptorWrites[0].dstBinding = binding;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
 
         c.vkUpdateDescriptorSets(device.handle, @intCast(descriptorWrites.len), &descriptorWrites, 0, null);
     }

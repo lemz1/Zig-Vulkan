@@ -17,9 +17,14 @@ pub const VulkanDescriptorPool = struct {
     pub fn new(device: *const VulkanDevice, descriptorPoolSizes: []const c.VkDescriptorPoolSize) !VulkanDescriptorPool {
         var descriptorPool: c.VkDescriptorPool = undefined;
         {
+            var maxSets: u32 = 0;
+            for (descriptorPoolSizes) |*size| {
+                maxSets += size.descriptorCount;
+            }
+
             var createInfo = c.VkDescriptorPoolCreateInfo{};
             createInfo.sType = c.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-            createInfo.maxSets = 1;
+            createInfo.maxSets = maxSets;
             createInfo.poolSizeCount = @intCast(descriptorPoolSizes.len);
             createInfo.pPoolSizes = descriptorPoolSizes.ptr;
 

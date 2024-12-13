@@ -67,8 +67,17 @@ pub const VulkanCommandBuffer = struct {
         c.vkCmdBindPipeline(self.handle, c.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
     }
 
-    pub fn bindDescriptorSet(self: *const VulkanCommandBuffer, pipeline: *const VulkanPipeline, descriptorSet: *const VulkanDescriptorSet) void {
-        c.vkCmdBindDescriptorSets(self.handle, c.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, &descriptorSet.handle, 0, null);
+    pub fn bindDescriptorSets(self: *const VulkanCommandBuffer, pipeline: *const VulkanPipeline, descriptorSets: []const c.VkDescriptorSet) void {
+        c.vkCmdBindDescriptorSets(
+            self.handle,
+            c.VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipeline.layout,
+            0,
+            @intCast(descriptorSets.len),
+            descriptorSets.ptr,
+            0,
+            null,
+        );
     }
 
     pub fn bindVertexBuffer(self: *const VulkanCommandBuffer, vertexBuffer: *const VulkanBuffer, offset: c.VkDeviceSize) void {
