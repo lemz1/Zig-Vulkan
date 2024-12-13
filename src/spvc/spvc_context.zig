@@ -26,4 +26,8 @@ pub const SPVCContext = struct {
     pub fn destroy(self: *SPVCContext) void {
         c.spvc_context_destroy(self.handle);
     }
+
+    pub fn release(self: *const SPVCContext) void {
+        c.spvc_context_release_allocations(self.handle);
+    }
 };
