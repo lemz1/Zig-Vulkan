@@ -37,6 +37,7 @@ const Window = core.Window;
 const Event = core.Event;
 const ImageData = util.ImageData;
 const DescriptorSetGroup = util.DescriptorSetGroup;
+const Pipeline = util.Pipeline;
 const vkCheck = @import("../vulkan/base.zig").vkCheck;
 
 pub const OnCreateParams = struct {
@@ -345,6 +346,22 @@ pub const Application = struct {
 
         var fragShader = assetManager.loadShader("assets/shaders/texture.frag", .Fragment) catch return;
         defer fragShader.release();
+
+        var vertShader2 = assetManager.loadShader("assets/shaders/texture copy.vert", .Vertex) catch return;
+        defer vertShader2.release();
+
+        var fragShader2 = assetManager.loadShader("assets/shaders/texture copy.frag", .Fragment) catch return;
+        defer fragShader2.release();
+
+        var graphicsPipeline = Pipeline.graphicsPipeline(
+            &self.vulkanContext,
+            &self.spvcContext,
+            &self.renderPass,
+            vertShader2.asset,
+            fragShader2.asset,
+            self.allocator,
+        ) catch return;
+        defer graphicsPipeline.destroy(&self.vulkanContext);
 
         var pipeline = blk: {
             var vertModule = VulkanShaderModule.new(&self.vulkanContext, vertShader.asset.spirvSize, vertShader.asset.spirvCode) catch return;

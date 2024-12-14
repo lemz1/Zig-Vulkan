@@ -6,6 +6,7 @@ const c = @cImport(@cInclude("vulkan/vulkan.h"));
 const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
+const VulkanDescriptorSetLayout = vulkan.VulkanDescriptorSetLayout;
 const VulkanShaderModule = vulkan.VulkanShaderModule;
 const vkCheck = base.vkCheck;
 
