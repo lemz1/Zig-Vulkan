@@ -209,38 +209,6 @@ pub const Application = struct {
         var sampler = VulkanSampler.new(&self.vulkanContext, .Linear, .Clamped) catch return;
         defer sampler.destroy(&self.vulkanContext);
 
-        var descriptorPool = blk: {
-            const sizes = [1]c.VkDescriptorPoolSize{
-                .{
-                    .descriptorCount = self.vulkanContext.framesInFlight,
-                    .type = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                },
-            };
-
-            break :blk VulkanDescriptorPool.new(&self.vulkanContext, &sizes) catch return;
-        };
-        defer descriptorPool.destroy(&self.vulkanContext);
-
-        var descriptorSetGroup = blk: {
-            var bindings = [1]c.VkDescriptorSetLayoutBinding{undefined};
-            bindings[0].binding = 0;
-            bindings[0].descriptorCount = 1;
-            bindings[0].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            bindings[0].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
-            bindings[0].pImmutableSamplers = null;
-
-            break :blk DescriptorSetGroup.new(
-                &self.vulkanContext,
-                &descriptorPool,
-                &bindings,
-                self.vulkanContext.framesInFlight,
-                self.allocator,
-            ) catch return;
-        };
-        defer descriptorSetGroup.destroy(&self.vulkanContext);
-        descriptorSetGroup.sets[0].updateSampler(&self.vulkanContext, &sampler, image.asset, 0);
-        descriptorSetGroup.sets[1].updateSampler(&self.vulkanContext, &sampler, image.asset, 0);
-
         const modelUniformBuffers = self.allocator.alloc(VulkanBuffer, self.vulkanContext.framesInFlight) catch return;
         defer self.allocator.free(modelUniformBuffers);
         for (0..modelUniformBuffers.len) |i| {
@@ -258,38 +226,6 @@ pub const Application = struct {
                 buffer.destroy(&self.vulkanContext);
             }
         }
-
-        var modelDescriptorPool = blk: {
-            const sizes = [1]c.VkDescriptorPoolSize{
-                .{
-                    .descriptorCount = self.vulkanContext.framesInFlight,
-                    .type = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                },
-            };
-
-            break :blk VulkanDescriptorPool.new(&self.vulkanContext, &sizes) catch return;
-        };
-        defer modelDescriptorPool.destroy(&self.vulkanContext);
-
-        var modelDescriptorSetGroup = blk: {
-            var bindings = [1]c.VkDescriptorSetLayoutBinding{undefined};
-            bindings[0].binding = 0;
-            bindings[0].descriptorCount = 1;
-            bindings[0].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            bindings[0].stageFlags = c.VK_SHADER_STAGE_VERTEX_BIT;
-            bindings[0].pImmutableSamplers = null;
-
-            break :blk DescriptorSetGroup.new(
-                &self.vulkanContext,
-                &modelDescriptorPool,
-                &bindings,
-                self.vulkanContext.framesInFlight,
-                self.allocator,
-            ) catch return;
-        };
-        defer modelDescriptorSetGroup.destroy(&self.vulkanContext);
-        modelDescriptorSetGroup.sets[0].updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
-        modelDescriptorSetGroup.sets[1].updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
 
         const vertices: []const f32 = &.{
             -0.5,
@@ -347,60 +283,20 @@ pub const Application = struct {
         var fragShader = assetManager.loadShader("assets/shaders/texture.frag", .Fragment) catch return;
         defer fragShader.release();
 
-        var vertShader2 = assetManager.loadShader("assets/shaders/texture copy.vert", .Vertex) catch return;
-        defer vertShader2.release();
-
-        var fragShader2 = assetManager.loadShader("assets/shaders/texture copy.frag", .Fragment) catch return;
-        defer fragShader2.release();
-
-        var graphicsPipeline = Pipeline.graphicsPipeline(
+        var pipeline = Pipeline.graphicsPipeline(
             &self.vulkanContext,
             &self.spvcContext,
             &self.renderPass,
-            vertShader2.asset,
-            fragShader2.asset,
+            vertShader.asset,
+            fragShader.asset,
             self.allocator,
         ) catch return;
-        defer graphicsPipeline.destroy(&self.vulkanContext);
-
-        var pipeline = blk: {
-            var vertModule = VulkanShaderModule.new(&self.vulkanContext, vertShader.asset.spirvSize, vertShader.asset.spirvCode) catch return;
-            defer vertModule.destroy(&self.vulkanContext);
-
-            var fragModule = VulkanShaderModule.new(&self.vulkanContext, fragShader.asset.spirvSize, fragShader.asset.spirvCode) catch return;
-            defer fragModule.destroy(&self.vulkanContext);
-
-            var bindings = [1]c.VkVertexInputBindingDescription{undefined};
-            bindings[0].binding = 0;
-            bindings[0].inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX;
-            bindings[0].stride = @sizeOf(f32) * 4;
-
-            var attributes = [2]c.VkVertexInputAttributeDescription{ undefined, undefined };
-            attributes[0].binding = 0;
-            attributes[0].location = 0;
-            attributes[0].format = c.VK_FORMAT_R32G32_SFLOAT;
-            attributes[0].offset = 0;
-            attributes[1].binding = 0;
-            attributes[1].location = 1;
-            attributes[1].format = c.VK_FORMAT_R32G32_SFLOAT;
-            attributes[1].offset = @sizeOf(f32) * 2;
-
-            const layouts: []const c.VkDescriptorSetLayout = &.{
-                descriptorSetGroup.layout.handle,
-                modelDescriptorSetGroup.layout.handle,
-            };
-
-            break :blk VulkanPipeline.new(
-                &self.vulkanContext,
-                &self.renderPass,
-                &vertModule,
-                &fragModule,
-                &attributes,
-                &bindings,
-                layouts,
-            ) catch return;
-        };
         defer pipeline.destroy(&self.vulkanContext);
+
+        pipeline.descriptorSet.sets[0].updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
+        pipeline.descriptorSet.sets[0].updateSampler(&self.vulkanContext, &sampler, image.asset, 1);
+        pipeline.descriptorSet.sets[1].updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
+        pipeline.descriptorSet.sets[1].updateSampler(&self.vulkanContext, &sampler, image.asset, 1);
 
         defer self.vulkanContext.device.wait();
 
@@ -475,16 +371,13 @@ pub const Application = struct {
                 beginInfo.pClearValues = &clearValues;
                 commandBuffer.beginRenderPass(&beginInfo);
 
-                commandBuffer.bindGraphicsPipeline(&pipeline);
+                commandBuffer.bindGraphicsPipeline(&pipeline.pipeline);
 
                 commandBuffer.bindVertexBuffer(&vertexBuffer, 0);
                 commandBuffer.bindIndexBuffer(&indexBuffer, 0);
                 commandBuffer.bindDescriptorSets(
-                    &pipeline,
-                    &.{
-                        descriptorSetGroup.sets[frameIndex].handle,
-                        modelDescriptorSetGroup.sets[frameIndex].handle,
-                    },
+                    &pipeline.pipeline,
+                    &.{pipeline.descriptorSet.sets[frameIndex].handle},
                 );
                 commandBuffer.drawIndexed(indices.len);
 
