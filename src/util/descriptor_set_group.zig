@@ -18,11 +18,12 @@ pub const DescriptorSetGroup = struct {
         context: *const VulkanContext,
         pool: *const VulkanDescriptorPool,
         bindings: []const c.VkDescriptorSetLayoutBinding,
+        setCount: usize,
         allocator: Allocator,
     ) !DescriptorSetGroup {
         const layout = try VulkanDescriptorSetLayout.new(context, bindings);
 
-        const sets = try allocator.alloc(VulkanDescriptorSet, context.framesInFlight);
+        const sets = try allocator.alloc(VulkanDescriptorSet, setCount);
         for (0..sets.len) |i| {
             sets[i] = try VulkanDescriptorSet.new(context, pool, &layout);
         }
@@ -38,9 +39,5 @@ pub const DescriptorSetGroup = struct {
     pub fn destroy(self: *DescriptorSetGroup, context: *const VulkanContext) void {
         self.allocator.free(self.sets);
         self.layout.destroy(context);
-    }
-
-    pub fn get(self: *const DescriptorSetGroup, frameIndex: u32) *const VulkanDescriptorSet {
-        return &self.sets[frameIndex];
     }
 };

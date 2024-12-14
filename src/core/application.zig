@@ -228,11 +228,17 @@ pub const Application = struct {
             bindings[0].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
             bindings[0].pImmutableSamplers = null;
 
-            break :blk DescriptorSetGroup.new(&self.vulkanContext, &descriptorPool, &bindings, self.allocator) catch return;
+            break :blk DescriptorSetGroup.new(
+                &self.vulkanContext,
+                &descriptorPool,
+                &bindings,
+                self.vulkanContext.framesInFlight,
+                self.allocator,
+            ) catch return;
         };
         defer descriptorSetGroup.destroy(&self.vulkanContext);
-        descriptorSetGroup.get(0).updateSampler(&self.vulkanContext, &sampler, image.asset, 0);
-        descriptorSetGroup.get(1).updateSampler(&self.vulkanContext, &sampler, image.asset, 0);
+        descriptorSetGroup.sets[0].updateSampler(&self.vulkanContext, &sampler, image.asset, 0);
+        descriptorSetGroup.sets[1].updateSampler(&self.vulkanContext, &sampler, image.asset, 0);
 
         const modelUniformBuffers = self.allocator.alloc(VulkanBuffer, self.vulkanContext.framesInFlight) catch return;
         defer self.allocator.free(modelUniformBuffers);
@@ -272,11 +278,17 @@ pub const Application = struct {
             bindings[0].stageFlags = c.VK_SHADER_STAGE_VERTEX_BIT;
             bindings[0].pImmutableSamplers = null;
 
-            break :blk DescriptorSetGroup.new(&self.vulkanContext, &modelDescriptorPool, &bindings, self.allocator) catch return;
+            break :blk DescriptorSetGroup.new(
+                &self.vulkanContext,
+                &modelDescriptorPool,
+                &bindings,
+                self.vulkanContext.framesInFlight,
+                self.allocator,
+            ) catch return;
         };
         defer modelDescriptorSetGroup.destroy(&self.vulkanContext);
-        modelDescriptorSetGroup.get(0).updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
-        modelDescriptorSetGroup.get(1).updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
+        modelDescriptorSetGroup.sets[0].updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
+        modelDescriptorSetGroup.sets[1].updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
 
         const vertices: []const f32 = &.{
             -0.5,
@@ -453,8 +465,8 @@ pub const Application = struct {
                 commandBuffer.bindDescriptorSets(
                     &pipeline,
                     &.{
-                        descriptorSetGroup.get(frameIndex).handle,
-                        modelDescriptorSetGroup.get(frameIndex).handle,
+                        descriptorSetGroup.sets[frameIndex].handle,
+                        modelDescriptorSetGroup.sets[frameIndex].handle,
                     },
                 );
                 commandBuffer.drawIndexed(indices.len);
