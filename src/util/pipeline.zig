@@ -31,6 +31,11 @@ const ResourceInfo = struct {
     compiler: *const SPVCCompiler,
 };
 
+const InputAttributeInfo = struct {
+    attributes: []c.VkVertexInputAttributeDescription,
+    sizes: []u32,
+};
+
 pub const Pipeline = struct {
     descriptorPool: VulkanDescriptorPool,
     descriptorSet: DescriptorSetGroup,
@@ -88,10 +93,11 @@ pub const Pipeline = struct {
             allocator,
         );
 
-        const inputAttributes = try createInputAttributes(&vertexCompiler, &vertexResources, allocator);
-        defer allocator.free(inputAttributes);
+        const inputAttributeInfos = try createInputAttributes(&vertexCompiler, &vertexResources, allocator);
+        defer allocator.free(inputAttributeInfos.attributes);
+        defer allocator.free(inputAttributeInfos.sizes);
 
-        const inputBindings = try createInputBindings(inputAttributes, allocator);
+        const inputBindings = try createInputBindings(&inputAttributeInfos, allocator);
         defer allocator.free(inputBindings);
 
         var vertexModule = try VulkanShaderModule.new(vulkanContext, vertexShader.spirvSize, vertexShader.spirvCode);
@@ -105,7 +111,7 @@ pub const Pipeline = struct {
             renderPass,
             &vertexModule,
             &fragmentModule,
-            inputAttributes,
+            inputAttributeInfos.attributes,
             inputBindings,
             &.{descriptorSet.layout.handle},
         );
@@ -127,10 +133,11 @@ pub const Pipeline = struct {
         spvcCompiler: *const SPVCCompiler,
         spvcResources: *const SPVCResources,
         allocator: Allocator,
-    ) ![]c.VkVertexInputAttributeDescription {
+    ) !InputAttributeInfo {
         const resourceList = spvcResources.getResourceList(.StageInput);
 
         var attributes = try ArrayList(c.VkVertexInputAttributeDescription).initCapacity(allocator, resourceList.count);
+        var sizes = try ArrayList(u32).initCapacity(allocator, resourceList.count);
 
         var offsets = std.mem.zeroes([maxBindings]u32);
 
@@ -139,6 +146,11 @@ pub const Pipeline = struct {
             const spvcType = try SPVCType.new(spvcCompiler, spvcResource.type_id);
             const baseType = spvcType.getBaseType();
             const vectorSize = spvcType.getVectorSize();
+            const numDimensions = spvcType.getNumDimensions();
+            var multiplier: u32 = 1;
+            for (0..numDimensions) |j| {
+                multiplier *= spvcType.getDimensions(@intCast(j));
+            }
 
             const binding = spvcCompiler.getDecoration(spvcResource.id, .Binding);
             const location = spvcCompiler.getDecoration(spvcResource.id, .Location);
@@ -151,35 +163,42 @@ pub const Pipeline = struct {
                 .offset = offsets[binding],
             });
 
-            offsets[binding] += getSize(format);
+            const size = getSize(format) * multiplier;
+
+            try sizes.append(size);
+
+            offsets[binding] += size;
         }
 
-        return attributes.toOwnedSlice();
+        return .{
+            .attributes = try attributes.toOwnedSlice(),
+            .sizes = try sizes.toOwnedSlice(),
+        };
     }
 
     fn createInputBindings(
-        attributes: []const c.VkVertexInputAttributeDescription,
+        attributeInfos: *const InputAttributeInfo,
         allocator: Allocator,
     ) ![]c.VkVertexInputBindingDescription {
         var bindings = ArrayList(c.VkVertexInputBindingDescription).init(allocator);
 
-        for (attributes) |*attribute| {
+        for (0..attributeInfos.attributes.len) |i| {
             var binding = blk: {
                 for (bindings.items) |*item| {
-                    if (item.binding == attribute.binding) {
+                    if (item.binding == attributeInfos.attributes[i].binding) {
                         break :blk item;
                     }
                 }
 
                 try bindings.append(.{
-                    .binding = attribute.binding,
+                    .binding = attributeInfos.attributes[i].binding,
                     .inputRate = c.VK_VERTEX_INPUT_RATE_VERTEX,
                     .stride = 0,
                 });
                 break :blk &bindings.items[bindings.items.len - 1];
             };
 
-            binding.stride += getSize(attribute.format);
+            binding.stride += attributeInfos.sizes[i];
         }
 
         return bindings.toOwnedSlice();

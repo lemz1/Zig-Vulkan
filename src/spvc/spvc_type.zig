@@ -51,4 +51,12 @@ pub const SPVCType = struct {
     pub fn getVectorSize(self: *const SPVCType) u32 {
         return c.spvc_type_get_vector_size(self.handle);
     }
+
+    pub fn getNumDimensions(self: *const SPVCType) u32 {
+        return c.spvc_type_get_num_array_dimensions(self.handle);
+    }
+
+    pub fn getDimensions(self: *const SPVCType, dimension: u32) u32 {
+        return c.spvc_type_get_array_dimension(self.handle, dimension);
+    }
 };
