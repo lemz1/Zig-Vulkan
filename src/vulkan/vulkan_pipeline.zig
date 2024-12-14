@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanShaderModule = vulkan.VulkanShaderModule;
 const vkCheck = base.vkCheck;
@@ -19,10 +19,10 @@ pub const VulkanPipeline = struct {
     layout: c.VkPipelineLayout,
 
     pub fn new(
-        device: *const VulkanDevice,
+        context: *const VulkanContext,
+        renderPass: *const VulkanRenderPass,
         vertModule: *const VulkanShaderModule,
         fragModule: *const VulkanShaderModule,
-        renderPass: *const VulkanRenderPass,
         attributeDescriptions: []const c.VkVertexInputAttributeDescription,
         bindingDescriptions: []const c.VkVertexInputBindingDescription,
         descriptorSetLayouts: []const c.VkDescriptorSetLayout,
@@ -113,7 +113,7 @@ pub const VulkanPipeline = struct {
             createInfo.setLayoutCount = @intCast(descriptorSetLayouts.len);
             createInfo.pSetLayouts = descriptorSetLayouts.ptr;
 
-            switch (c.vkCreatePipelineLayout(device.handle, &createInfo, null, &pipelineLayout)) {
+            switch (c.vkCreatePipelineLayout(context.device.handle, &createInfo, null, &pipelineLayout)) {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Pipeline Layout\n", .{});
@@ -140,7 +140,7 @@ pub const VulkanPipeline = struct {
             createInfo.renderPass = renderPass.handle;
             createInfo.subpass = 0;
 
-            switch (c.vkCreateGraphicsPipelines(device.handle, null, 1, &createInfo, null, &pipeline)) {
+            switch (c.vkCreateGraphicsPipelines(context.device.handle, null, 1, &createInfo, null, &pipeline)) {
                 c.VK_SUCCESS => {
                     return .{
                         .handle = pipeline,
@@ -155,8 +155,8 @@ pub const VulkanPipeline = struct {
         }
     }
 
-    pub fn destroy(self: *VulkanPipeline, device: *const VulkanDevice) void {
-        c.vkDestroyPipeline(device.handle, self.handle, null);
-        c.vkDestroyPipelineLayout(device.handle, self.layout, null);
+    pub fn destroy(self: *VulkanPipeline, context: *const VulkanContext) void {
+        c.vkDestroyPipeline(context.device.handle, self.handle, null);
+        c.vkDestroyPipelineLayout(context.device.handle, self.layout, null);
     }
 };

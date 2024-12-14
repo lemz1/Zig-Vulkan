@@ -4,7 +4,6 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
 const vkCheck = base.vkCheck;
 
 const VulkanFence = vulkan.VulkanFence;

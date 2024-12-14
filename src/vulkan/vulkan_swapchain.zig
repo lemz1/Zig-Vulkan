@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const VulkanSurface = vulkan.VulkanSurface;
 const VulkanFence = vulkan.VulkanFence;
 const VulkanSemaphore = vulkan.VulkanSemaphore;
@@ -25,26 +25,26 @@ pub const VulkanSwapchain = struct {
     allocator: Allocator,
 
     pub fn new(
-        device: *const VulkanDevice,
+        context: *const VulkanContext,
         surface: *const VulkanSurface,
         usage: c.VkImageUsageFlags,
         oldSwapchain: ?*const VulkanSwapchain,
         allocator: Allocator,
     ) !VulkanSwapchain {
         var supportsPresent: c.VkBool32 = 0;
-        vkCheck(c.vkGetPhysicalDeviceSurfaceSupportKHR(device.physicalDevice, device.graphicsQueue.familyIndex, surface.handle, &supportsPresent));
+        vkCheck(c.vkGetPhysicalDeviceSurfaceSupportKHR(context.device.physicalDevice, context.device.graphicsQueue.familyIndex, surface.handle, &supportsPresent));
 
         var numFormats: u32 = 0;
-        vkCheck(c.vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicalDevice, surface.handle, &numFormats, null));
+        vkCheck(c.vkGetPhysicalDeviceSurfaceFormatsKHR(context.device.physicalDevice, surface.handle, &numFormats, null));
         const availableFormats = try allocator.alloc(c.VkSurfaceFormatKHR, numFormats);
         defer allocator.free(availableFormats);
-        vkCheck(c.vkGetPhysicalDeviceSurfaceFormatsKHR(device.physicalDevice, surface.handle, &numFormats, availableFormats.ptr));
+        vkCheck(c.vkGetPhysicalDeviceSurfaceFormatsKHR(context.device.physicalDevice, surface.handle, &numFormats, availableFormats.ptr));
 
         const format = availableFormats[0].format;
         const colorSpace = availableFormats[0].colorSpace;
 
         var surfaceCapabilities = c.VkSurfaceCapabilitiesKHR{};
-        vkCheck(c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physicalDevice, surface.handle, &surfaceCapabilities));
+        vkCheck(c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.device.physicalDevice, surface.handle, &surfaceCapabilities));
 
         if (surfaceCapabilities.currentExtent.width == 0xFFFFFFFF) {
             surfaceCapabilities.currentExtent.width = surfaceCapabilities.minImageExtent.width;
@@ -72,7 +72,7 @@ pub const VulkanSwapchain = struct {
         createInfo.oldSwapchain = oldSwapchainHandle;
 
         var swapchain: c.VkSwapchainKHR = undefined;
-        switch (c.vkCreateSwapchainKHR(device.handle, &createInfo, null, &swapchain)) {
+        switch (c.vkCreateSwapchainKHR(context.device.handle, &createInfo, null, &swapchain)) {
             c.VK_SUCCESS => {},
             else => {
                 std.debug.print("[Vulkan] Could not create Swapchain\n", .{});
@@ -81,9 +81,9 @@ pub const VulkanSwapchain = struct {
         }
 
         var imageCount: u32 = 0;
-        vkCheck(c.vkGetSwapchainImagesKHR(device.handle, swapchain, &imageCount, null));
+        vkCheck(c.vkGetSwapchainImagesKHR(context.device.handle, swapchain, &imageCount, null));
         const images = try allocator.alloc(c.VkImage, imageCount);
-        vkCheck(c.vkGetSwapchainImagesKHR(device.handle, swapchain, &imageCount, images.ptr));
+        vkCheck(c.vkGetSwapchainImagesKHR(context.device.handle, swapchain, &imageCount, images.ptr));
 
         const imageViews = try allocator.alloc(c.VkImageView, imageCount);
         for (0..imageCount) |i| {
@@ -99,7 +99,7 @@ pub const VulkanSwapchain = struct {
                 .baseArrayLayer = 0,
                 .layerCount = 1,
             };
-            vkCheck(c.vkCreateImageView(device.handle, &imageViewCreateInfo, null, &imageViews[i]));
+            vkCheck(c.vkCreateImageView(context.device.handle, &imageViewCreateInfo, null, &imageViews[i]));
         }
 
         return .{
@@ -114,11 +114,11 @@ pub const VulkanSwapchain = struct {
         };
     }
 
-    pub fn destroy(self: *VulkanSwapchain, device: *const VulkanDevice) void {
+    pub fn destroy(self: *VulkanSwapchain, context: *const VulkanContext) void {
         for (self.imageViews) |imageView| {
-            c.vkDestroyImageView(device.handle, imageView, null);
+            c.vkDestroyImageView(context.device.handle, imageView, null);
         }
-        c.vkDestroySwapchainKHR(device.handle, self.handle, null);
+        c.vkDestroySwapchainKHR(context.device.handle, self.handle, null);
 
         self.allocator.free(self.imageViews);
         self.allocator.free(self.images);
@@ -126,7 +126,7 @@ pub const VulkanSwapchain = struct {
 
     pub fn acquireNextImage(
         self: *const VulkanSwapchain,
-        device: *const VulkanDevice,
+        context: *const VulkanContext,
         semaphore: ?*const VulkanSemaphore,
         fence: ?*const VulkanFence,
         imageIndex: *u32,
@@ -135,7 +135,7 @@ pub const VulkanSwapchain = struct {
         const fenceHandle: c.VkFence = if (fence) |v| v.handle else null;
 
         return c.vkAcquireNextImageKHR(
-            device.handle,
+            context.device.handle,
             self.handle,
             std.math.maxInt(u64),
             semaphoreHandle,

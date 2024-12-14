@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanPipeline = vulkan.VulkanPipeline;
 const VulkanDescriptorSet = vulkan.VulkanDescriptorSet;
@@ -19,7 +19,7 @@ const VulkanCommandBufferError = error{
 pub const VulkanCommandBuffer = struct {
     handle: c.VkCommandBuffer,
 
-    pub fn new(device: *const VulkanDevice, commandPool: *const VulkanCommandPool) !VulkanCommandBuffer {
+    pub fn new(context: *const VulkanContext, commandPool: *const VulkanCommandPool) !VulkanCommandBuffer {
         var allocateInfo = c.VkCommandBufferAllocateInfo{};
         allocateInfo.sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocateInfo.commandPool = commandPool.handle;
@@ -27,7 +27,7 @@ pub const VulkanCommandBuffer = struct {
         allocateInfo.commandBufferCount = 1;
 
         var commandBuffer: c.VkCommandBuffer = undefined;
-        switch (c.vkAllocateCommandBuffers(device.handle, &allocateInfo, &commandBuffer)) {
+        switch (c.vkAllocateCommandBuffers(context.device.handle, &allocateInfo, &commandBuffer)) {
             c.VK_SUCCESS => {
                 return .{
                     .handle = commandBuffer,
@@ -40,8 +40,8 @@ pub const VulkanCommandBuffer = struct {
         }
     }
 
-    pub fn destroy(self: *VulkanCommandBuffer, device: *const VulkanDevice, commandPool: *const VulkanCommandPool) void {
-        c.vkFreeCommandBuffers(device.handle, commandPool.handle, 1, &self.handle);
+    pub fn destroy(self: *VulkanCommandBuffer, context: *const VulkanContext, commandPool: *const VulkanCommandPool) void {
+        c.vkFreeCommandBuffers(context.device.handle, commandPool.handle, 1, &self.handle);
     }
 
     pub fn begin(self: *const VulkanCommandBuffer) void {

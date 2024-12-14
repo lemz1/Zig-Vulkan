@@ -15,6 +15,14 @@ const SPVCType = spvc.SPVCType;
 const RuntimeShader = glslang.RuntimeShader;
 const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
+const VulkanRenderPass = vulkan.VulkanRenderPass;
+const VulkanSwapchain = vulkan.VulkanSwapchain;
+const VulkanSurface = vulkan.VulkanSurface;
+const VulkanCommandPool = vulkan.VulkanCommandPool;
+const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
+const VulkanFence = vulkan.VulkanFence;
+const VulkanSemaphore = vulkan.VulkanSemaphore;
+const VulkanFramebuffer = vulkan.VulkanFramebuffer;
 const VulkanShaderModule = vulkan.VulkanShaderModule;
 const VulkanPipeline = vulkan.VulkanPipeline;
 const VulkanBuffer = vulkan.VulkanBuffer;
@@ -28,6 +36,7 @@ const GLFW = core.GLFW;
 const Window = core.Window;
 const Event = core.Event;
 const ImageData = util.ImageData;
+const DescriptorSetGroup = util.DescriptorSetGroup;
 const vkCheck = @import("../vulkan/base.zig").vkCheck;
 
 pub const OnCreateParams = struct {
@@ -49,9 +58,21 @@ pub const ApplicationCreateOptions = struct {
 };
 
 pub const Application = struct {
+    spvcContext: SPVCContext,
+
     window: Window,
-    ctx: VulkanContext,
-    spvcCtx: SPVCContext,
+
+    vulkanContext: VulkanContext,
+    surface: VulkanSurface,
+    swapchain: VulkanSwapchain,
+    depthbuffers: []VulkanImage,
+    framebuffers: []VulkanFramebuffer,
+    renderPass: VulkanRenderPass,
+    commandPools: []VulkanCommandPool,
+    commandBuffers: []VulkanCommandBuffer,
+    fences: []VulkanFence,
+    acquireSemaphores: []VulkanSemaphore,
+    releaseSemaphores: []VulkanSemaphore,
 
     onCreate: Event(OnCreateParams),
     onUpdate: Event(OnUpdateParams),
@@ -62,22 +83,71 @@ pub const Application = struct {
     pub fn new(options: ApplicationCreateOptions) !Application {
         try GLSLang.init();
 
-        const spvcCtx = try SPVCContext.new();
+        const spvcContext = try SPVCContext.new();
 
         try GLFW.init();
 
         const window = try Window.create(1280, 720, "Vulkan");
 
-        const ctx = try VulkanContext.create(&window, options.vulkanOptions, options.allocator);
+        const vulkanContext = try VulkanContext.create(options.vulkanOptions, options.allocator);
+
+        const surface = try VulkanSurface.new(&vulkanContext, &window);
+        const swapchain = try VulkanSwapchain.new(&vulkanContext, &surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, null, options.allocator);
+        const renderPass = try VulkanRenderPass.new(&vulkanContext, swapchain.format);
+
+        const depthbuffers = try options.allocator.alloc(VulkanImage, swapchain.images.len);
+        const framebuffers = try options.allocator.alloc(VulkanFramebuffer, swapchain.images.len);
+        for (0..swapchain.images.len) |i| {
+            depthbuffers[i] = try VulkanImage.new(
+                &vulkanContext,
+                &ImageData.empty(swapchain.width, swapchain.height, .Depth32),
+                c.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            );
+            const attachments = [_]c.VkImageView{
+                swapchain.imageViews[i],
+                depthbuffers[i].view,
+            };
+            framebuffers[i] = try VulkanFramebuffer.new(&vulkanContext, &renderPass, @intCast(attachments.len), &attachments, swapchain.width, swapchain.height);
+        }
+
+        const commandPools = try options.allocator.alloc(VulkanCommandPool, vulkanContext.framesInFlight);
+        const commandBuffers = try options.allocator.alloc(VulkanCommandBuffer, vulkanContext.framesInFlight);
+
+        const fences = try options.allocator.alloc(VulkanFence, vulkanContext.framesInFlight);
+
+        const acquireSemaphores = try options.allocator.alloc(VulkanSemaphore, vulkanContext.framesInFlight);
+        const releaseSemaphores = try options.allocator.alloc(VulkanSemaphore, vulkanContext.framesInFlight);
+
+        for (0..vulkanContext.framesInFlight) |i| {
+            commandPools[i] = try VulkanCommandPool.new(&vulkanContext, vulkanContext.device.graphicsQueue.familyIndex);
+            commandBuffers[i] = try VulkanCommandBuffer.new(&vulkanContext, &commandPools[i]);
+
+            fences[i] = try VulkanFence.new(&vulkanContext, true);
+
+            acquireSemaphores[i] = try VulkanSemaphore.new(&vulkanContext);
+            releaseSemaphores[i] = try VulkanSemaphore.new(&vulkanContext);
+        }
 
         const onCreate = Event(OnCreateParams).new(options.allocator);
         const onUpdate = Event(OnUpdateParams).new(options.allocator);
         const onDestroy = Event(OnDestroyParams).new(options.allocator);
 
         return .{
+            .spvcContext = spvcContext,
+
             .window = window,
-            .ctx = ctx,
-            .spvcCtx = spvcCtx,
+
+            .vulkanContext = vulkanContext,
+            .surface = surface,
+            .swapchain = swapchain,
+            .depthbuffers = depthbuffers,
+            .framebuffers = framebuffers,
+            .renderPass = renderPass,
+            .commandPools = commandPools,
+            .commandBuffers = commandBuffers,
+            .fences = fences,
+            .acquireSemaphores = acquireSemaphores,
+            .releaseSemaphores = releaseSemaphores,
 
             .onCreate = onCreate,
             .onUpdate = onUpdate,
@@ -91,36 +161,66 @@ pub const Application = struct {
         self.onDestroy.destroy();
         self.onUpdate.destroy();
         self.onCreate.destroy();
-        self.ctx.destroy();
+
+        for (0..self.vulkanContext.framesInFlight) |i| {
+            self.commandPools[i].destroy(&self.vulkanContext);
+
+            self.releaseSemaphores[i].destroy(&self.vulkanContext);
+            self.acquireSemaphores[i].destroy(&self.vulkanContext);
+
+            self.fences[i].destroy(&self.vulkanContext);
+        }
+
+        for (0..self.framebuffers.len) |i| {
+            self.framebuffers[i].destroy(&self.vulkanContext);
+            self.depthbuffers[i].destroy(&self.vulkanContext);
+        }
+
+        self.renderPass.destroy(&self.vulkanContext);
+        self.swapchain.destroy(&self.vulkanContext);
+        self.surface.destroy(&self.vulkanContext);
+        self.vulkanContext.destroy();
+
+        self.allocator.free(self.releaseSemaphores);
+        self.allocator.free(self.acquireSemaphores);
+        self.allocator.free(self.fences);
+        self.allocator.free(self.commandBuffers);
+        self.allocator.free(self.commandPools);
+        self.allocator.free(self.framebuffers);
+        self.allocator.free(self.depthbuffers);
+
         self.window.destroy();
+
         GLFW.deinit();
-        self.spvcCtx.destroy();
+
+        self.spvcContext.destroy();
+
         GLSLang.deinit();
     }
 
     pub fn run(self: *Application) void {
-        var assetManager = AssetManager.new(&self.ctx);
+        var assetManager = AssetManager.new(&self.vulkanContext, self.allocator);
         defer assetManager.destroy();
 
         var image = assetManager.loadImage("assets/images/test.png", .RGBA8) catch return;
         defer image.release();
 
-        var sampler = VulkanSampler.new(&self.ctx.device, .Linear, .Clamped) catch return;
-        defer sampler.destroy(&self.ctx.device);
+        var sampler = VulkanSampler.new(&self.vulkanContext, .Linear, .Clamped) catch return;
+        defer sampler.destroy(&self.vulkanContext);
 
         var descriptorPool = blk: {
             const sizes = [1]c.VkDescriptorPoolSize{
                 .{
-                    .descriptorCount = 1,
+                    .descriptorCount = self.vulkanContext.framesInFlight,
                     .type = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 },
             };
 
-            break :blk VulkanDescriptorPool.new(&self.ctx.device, &sizes) catch return;
+            break :blk VulkanDescriptorPool.new(&self.vulkanContext, &sizes) catch return;
         };
-        defer descriptorPool.destroy(&self.ctx.device);
+        defer descriptorPool.destroy(&self.vulkanContext);
 
-        var descriptorSet = blk: {
+        var descriptorSetGroup = blk: {
             var bindings = [1]c.VkDescriptorSetLayoutBinding{undefined};
             bindings[0].binding = 0;
             bindings[0].descriptorCount = 1;
@@ -128,44 +228,43 @@ pub const Application = struct {
             bindings[0].stageFlags = c.VK_SHADER_STAGE_FRAGMENT_BIT;
             bindings[0].pImmutableSamplers = null;
 
-            break :blk VulkanDescriptorSet.new(&self.ctx.device, &descriptorPool, 1, &bindings) catch return;
+            break :blk DescriptorSetGroup.new(&self.vulkanContext, &descriptorPool, &bindings, self.allocator) catch return;
         };
-        defer descriptorSet.destroy(&self.ctx.device);
-        descriptorSet.updateSampler(&self.ctx.device, &sampler, image.asset, 0);
+        defer descriptorSetGroup.destroy(&self.vulkanContext);
+        descriptorSetGroup.get(0).updateSampler(&self.vulkanContext, &sampler, image.asset, 0);
+        descriptorSetGroup.get(1).updateSampler(&self.vulkanContext, &sampler, image.asset, 0);
 
-        const modelUniformBuffers = self.allocator.alloc(VulkanBuffer, self.ctx.framesInFlight) catch return;
+        const modelUniformBuffers = self.allocator.alloc(VulkanBuffer, self.vulkanContext.framesInFlight) catch return;
         defer self.allocator.free(modelUniformBuffers);
         for (0..modelUniformBuffers.len) |i| {
             modelUniformBuffers[i] = VulkanBuffer.new(
-                &self.ctx.device,
+                &self.vulkanContext,
                 @sizeOf(f32) * 2,
                 c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                 c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             ) catch return;
             const data: []const f32 = &.{ 0.1, 0.2 };
-            modelUniformBuffers[i].uploadData(&self.ctx.device, data) catch return;
+            modelUniformBuffers[i].uploadData(&self.vulkanContext, data) catch return;
         }
         defer {
             for (modelUniformBuffers) |*buffer| {
-                buffer.destroy(&self.ctx.device);
+                buffer.destroy(&self.vulkanContext);
             }
         }
 
         var modelDescriptorPool = blk: {
             const sizes = [1]c.VkDescriptorPoolSize{
                 .{
-                    .descriptorCount = self.ctx.framesInFlight,
+                    .descriptorCount = self.vulkanContext.framesInFlight,
                     .type = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                 },
             };
 
-            break :blk VulkanDescriptorPool.new(&self.ctx.device, &sizes) catch return;
+            break :blk VulkanDescriptorPool.new(&self.vulkanContext, &sizes) catch return;
         };
-        defer modelDescriptorPool.destroy(&self.ctx.device);
+        defer modelDescriptorPool.destroy(&self.vulkanContext);
 
-        const modelDescriptorSets = self.allocator.alloc(VulkanDescriptorSet, self.ctx.framesInFlight) catch return;
-        defer self.allocator.free(modelDescriptorSets);
-        for (0..modelDescriptorSets.len) |i| {
+        var modelDescriptorSetGroup = blk: {
             var bindings = [1]c.VkDescriptorSetLayoutBinding{undefined};
             bindings[0].binding = 0;
             bindings[0].descriptorCount = 1;
@@ -173,14 +272,11 @@ pub const Application = struct {
             bindings[0].stageFlags = c.VK_SHADER_STAGE_VERTEX_BIT;
             bindings[0].pImmutableSamplers = null;
 
-            modelDescriptorSets[i] = VulkanDescriptorSet.new(&self.ctx.device, &modelDescriptorPool, 1, &bindings) catch return;
-            modelDescriptorSets[i].updateBuffer(&self.ctx.device, &modelUniformBuffers[i], @sizeOf(f32) * 2, 0);
-        }
-        defer {
-            for (modelDescriptorSets) |*set| {
-                set.destroy(&self.ctx.device);
-            }
-        }
+            break :blk DescriptorSetGroup.new(&self.vulkanContext, &modelDescriptorPool, &bindings, self.allocator) catch return;
+        };
+        defer modelDescriptorSetGroup.destroy(&self.vulkanContext);
+        modelDescriptorSetGroup.get(0).updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
+        modelDescriptorSetGroup.get(1).updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
 
         const vertices: []const f32 = &.{
             -0.5,
@@ -205,14 +301,14 @@ pub const Application = struct {
         };
 
         var vertexBuffer = VulkanBuffer.new(
-            &self.ctx.device,
+            &self.vulkanContext,
             @sizeOf(f32) * vertices.len,
             c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         ) catch return;
-        defer vertexBuffer.destroy(&self.ctx.device);
+        defer vertexBuffer.destroy(&self.vulkanContext);
 
-        vertexBuffer.uploadData(&self.ctx.device, vertices) catch {
+        vertexBuffer.uploadData(&self.vulkanContext, vertices) catch {
             std.debug.print("Failed to upload data to Vertex Buffer\n", .{});
             return;
         };
@@ -220,14 +316,14 @@ pub const Application = struct {
         const indices: []const u32 = &.{ 0, 1, 2, 1, 3, 2 };
 
         var indexBuffer = VulkanBuffer.new(
-            &self.ctx.device,
+            &self.vulkanContext,
             @sizeOf(f32) * vertices.len,
             c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         ) catch return;
-        defer indexBuffer.destroy(&self.ctx.device);
+        defer indexBuffer.destroy(&self.vulkanContext);
 
-        indexBuffer.uploadData(&self.ctx.device, indices) catch {
+        indexBuffer.uploadData(&self.vulkanContext, indices) catch {
             std.debug.print("Failed to upload data to Index Buffer\n", .{});
             return;
         };
@@ -239,11 +335,11 @@ pub const Application = struct {
         defer fragShader.release();
 
         var pipeline = blk: {
-            var vertModule = VulkanShaderModule.new(&self.ctx.device, vertShader.asset.spirvSize, vertShader.asset.spirvCode) catch return;
-            defer vertModule.destroy(&self.ctx.device);
+            var vertModule = VulkanShaderModule.new(&self.vulkanContext, vertShader.asset.spirvSize, vertShader.asset.spirvCode) catch return;
+            defer vertModule.destroy(&self.vulkanContext);
 
-            var fragModule = VulkanShaderModule.new(&self.ctx.device, fragShader.asset.spirvSize, fragShader.asset.spirvCode) catch return;
-            defer fragModule.destroy(&self.ctx.device);
+            var fragModule = VulkanShaderModule.new(&self.vulkanContext, fragShader.asset.spirvSize, fragShader.asset.spirvCode) catch return;
+            defer fragModule.destroy(&self.vulkanContext);
 
             var bindings = [1]c.VkVertexInputBindingDescription{undefined};
             bindings[0].binding = 0;
@@ -261,23 +357,23 @@ pub const Application = struct {
             attributes[1].offset = @sizeOf(f32) * 2;
 
             const layouts: []const c.VkDescriptorSetLayout = &.{
-                descriptorSet.layout,
-                modelDescriptorSets[0].layout,
+                descriptorSetGroup.layout.handle,
+                modelDescriptorSetGroup.layout.handle,
             };
 
             break :blk VulkanPipeline.new(
-                &self.ctx.device,
+                &self.vulkanContext,
+                &self.renderPass,
                 &vertModule,
                 &fragModule,
-                &self.ctx.renderPass,
                 &attributes,
                 &bindings,
                 layouts,
             ) catch return;
         };
-        defer pipeline.destroy(&self.ctx.device);
+        defer pipeline.destroy(&self.vulkanContext);
 
-        defer self.ctx.device.wait();
+        defer self.vulkanContext.device.wait();
 
         self.onCreate.dispatch(.{ .app = self });
 
@@ -293,20 +389,20 @@ pub const Application = struct {
 
             self.onUpdate.dispatch(.{ .app = self, .deltaTime = deltaTime });
 
-            const commandPool = self.ctx.commandPools[frameIndex];
-            const commandBuffer = self.ctx.commandBuffers[frameIndex];
-            const fence = self.ctx.fences[frameIndex];
-            const acquireSemaphore = self.ctx.acquireSemaphores[frameIndex];
-            const releaseSemaphore = self.ctx.releaseSemaphores[frameIndex];
+            const commandPool = self.commandPools[frameIndex];
+            const commandBuffer = self.commandBuffers[frameIndex];
+            const fence = self.fences[frameIndex];
+            const acquireSemaphore = self.acquireSemaphores[frameIndex];
+            const releaseSemaphore = self.releaseSemaphores[frameIndex];
 
-            fence.wait(&self.ctx.device);
+            fence.wait(&self.vulkanContext);
 
             var imageIndex: u32 = 0;
             {
-                const result = self.ctx.swapchain.acquireNextImage(&self.ctx.device, &acquireSemaphore, null, &imageIndex);
+                const result = self.swapchain.acquireNextImage(&self.vulkanContext, &acquireSemaphore, null, &imageIndex);
                 switch (result) {
                     c.VK_ERROR_OUT_OF_DATE_KHR, c.VK_SUBOPTIMAL_KHR => {
-                        self.ctx.recreateSwapchain() catch {
+                        self.recreateSwapchain() catch {
                             std.debug.print("[Vulkan] Could not recreate Swapchain\n", .{});
                         };
 
@@ -318,14 +414,14 @@ pub const Application = struct {
                 }
             }
 
-            fence.reset(&self.ctx.device);
+            fence.reset(&self.vulkanContext);
 
-            commandPool.reset(&self.ctx.device);
+            commandPool.reset(&self.vulkanContext);
 
             commandBuffer.begin();
             {
-                commandBuffer.setViewport(@floatFromInt(self.ctx.swapchain.width), @floatFromInt(self.ctx.swapchain.height));
-                commandBuffer.setScissor(self.ctx.swapchain.width, self.ctx.swapchain.height);
+                commandBuffer.setViewport(@floatFromInt(self.swapchain.width), @floatFromInt(self.swapchain.height));
+                commandBuffer.setScissor(self.swapchain.width, self.swapchain.height);
 
                 const clearValues = [2]c.VkClearValue{
                     .{
@@ -340,11 +436,11 @@ pub const Application = struct {
 
                 var beginInfo = c.VkRenderPassBeginInfo{};
                 beginInfo.sType = c.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-                beginInfo.renderPass = self.ctx.renderPass.handle;
-                beginInfo.framebuffer = self.ctx.framebuffers[imageIndex].handle;
+                beginInfo.renderPass = self.renderPass.handle;
+                beginInfo.framebuffer = self.framebuffers[imageIndex].handle;
                 beginInfo.renderArea = .{
                     .offset = .{ .x = 0, .y = 0 },
-                    .extent = .{ .width = self.ctx.swapchain.width, .height = self.ctx.swapchain.height },
+                    .extent = .{ .width = self.swapchain.width, .height = self.swapchain.height },
                 };
                 beginInfo.clearValueCount = @intCast(clearValues.len);
                 beginInfo.pClearValues = &clearValues;
@@ -357,8 +453,8 @@ pub const Application = struct {
                 commandBuffer.bindDescriptorSets(
                     &pipeline,
                     &.{
-                        descriptorSet.handle,
-                        modelDescriptorSets[frameIndex].handle,
+                        descriptorSetGroup.get(frameIndex).handle,
+                        modelDescriptorSetGroup.get(frameIndex).handle,
                     },
                 );
                 commandBuffer.drawIndexed(indices.len);
@@ -378,22 +474,22 @@ pub const Application = struct {
                 submitInfo.pSignalSemaphores = &releaseSemaphore.handle;
                 const waitMask: c.VkPipelineStageFlags = c.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
                 submitInfo.pWaitDstStageMask = &waitMask;
-                self.ctx.device.graphicsQueue.submit(&submitInfo, &fence);
+                self.vulkanContext.device.graphicsQueue.submit(&submitInfo, &fence);
             }
 
             {
                 var presentInfo = c.VkPresentInfoKHR{};
                 presentInfo.sType = c.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
                 presentInfo.swapchainCount = 1;
-                presentInfo.pSwapchains = &self.ctx.swapchain.handle;
+                presentInfo.pSwapchains = &self.swapchain.handle;
                 presentInfo.pImageIndices = &imageIndex;
                 presentInfo.waitSemaphoreCount = 1;
                 presentInfo.pWaitSemaphores = &releaseSemaphore.handle;
                 {
-                    const result = self.ctx.device.graphicsQueue.present(&presentInfo);
+                    const result = self.vulkanContext.device.graphicsQueue.present(&presentInfo);
                     switch (result) {
                         c.VK_ERROR_OUT_OF_DATE_KHR, c.VK_SUBOPTIMAL_KHR => {
-                            self.ctx.recreateSwapchain() catch {
+                            self.recreateSwapchain() catch {
                                 std.debug.print("[Vulkan] Could not recreate Swapchain\n", .{});
                             };
                         },
@@ -404,9 +500,55 @@ pub const Application = struct {
                 }
             }
 
-            frameIndex = (frameIndex + 1) % self.ctx.framesInFlight;
+            frameIndex = (frameIndex + 1) % self.vulkanContext.framesInFlight;
         }
 
         self.onDestroy.dispatch(.{ .app = self });
+    }
+
+    fn recreateSwapchain(self: *Application) !void {
+        var surfaceCapabilities: c.VkSurfaceCapabilitiesKHR = undefined;
+        vkCheck(c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(self.vulkanContext.device.physicalDevice, self.surface.handle, &surfaceCapabilities));
+        if (surfaceCapabilities.currentExtent.width == 0 or surfaceCapabilities.currentExtent.height == 0) {
+            return;
+        }
+
+        self.vulkanContext.device.wait();
+
+        var oldSwapchain = self.swapchain;
+        self.swapchain = try VulkanSwapchain.new(&self.vulkanContext, &self.surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &oldSwapchain, self.allocator);
+        oldSwapchain.destroy(&self.vulkanContext);
+
+        self.renderPass.destroy(&self.vulkanContext);
+        self.renderPass = try VulkanRenderPass.new(&self.vulkanContext, self.swapchain.format);
+
+        for (0..self.framebuffers.len) |i| {
+            self.framebuffers[i].destroy(&self.vulkanContext);
+            self.depthbuffers[i].destroy(&self.vulkanContext);
+        }
+        self.allocator.free(self.framebuffers);
+        self.allocator.free(self.depthbuffers);
+        self.depthbuffers = try self.allocator.alloc(VulkanImage, self.swapchain.images.len);
+        self.framebuffers = try self.allocator.alloc(VulkanFramebuffer, self.swapchain.images.len);
+
+        for (0..self.framebuffers.len) |i| {
+            self.depthbuffers[i] = try VulkanImage.new(
+                &self.vulkanContext,
+                &ImageData.empty(self.swapchain.width, self.swapchain.height, .Depth32),
+                c.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            );
+            const attachments = [_]c.VkImageView{
+                self.swapchain.imageViews[i],
+                self.depthbuffers[i].view,
+            };
+            self.framebuffers[i] = try VulkanFramebuffer.new(
+                &self.vulkanContext,
+                &self.renderPass,
+                @intCast(attachments.len),
+                &attachments,
+                self.swapchain.width,
+                self.swapchain.height,
+            );
+        }
     }
 };

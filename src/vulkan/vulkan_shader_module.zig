@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
 const VulkanShaderModuleError = error{
@@ -14,14 +14,14 @@ const VulkanShaderModuleError = error{
 pub const VulkanShaderModule = struct {
     handle: c.VkShaderModule,
 
-    pub fn new(device: *const VulkanDevice, size: usize, spirv: [*c]const u32) !VulkanShaderModule {
+    pub fn new(context: *const VulkanContext, size: usize, spirv: [*c]const u32) !VulkanShaderModule {
         var createInfo = c.VkShaderModuleCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         createInfo.codeSize = size;
         createInfo.pCode = spirv;
 
         var shaderModule: c.VkShaderModule = undefined;
-        switch (c.vkCreateShaderModule(device.handle, &createInfo, null, &shaderModule)) {
+        switch (c.vkCreateShaderModule(context.device.handle, &createInfo, null, &shaderModule)) {
             c.VK_SUCCESS => {
                 return .{
                     .handle = shaderModule,
@@ -34,7 +34,7 @@ pub const VulkanShaderModule = struct {
         }
     }
 
-    pub fn destroy(self: *VulkanShaderModule, device: *const VulkanDevice) void {
-        c.vkDestroyShaderModule(device.handle, self.handle, null);
+    pub fn destroy(self: *VulkanShaderModule, context: *const VulkanContext) void {
+        c.vkDestroyShaderModule(context.device.handle, self.handle, null);
     }
 };

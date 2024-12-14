@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
 const VulkanFenceError = error{
@@ -14,13 +14,13 @@ const VulkanFenceError = error{
 pub const VulkanFence = struct {
     handle: c.VkFence,
 
-    pub fn new(device: *const VulkanDevice, createSignaled: bool) !VulkanFence {
+    pub fn new(context: *const VulkanContext, createSignaled: bool) !VulkanFence {
         var createInfo = c.VkFenceCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         createInfo.flags = if (createSignaled) c.VK_FENCE_CREATE_SIGNALED_BIT else 0;
 
         var fence: c.VkFence = undefined;
-        switch (c.vkCreateFence(device.handle, &createInfo, null, &fence)) {
+        switch (c.vkCreateFence(context.device.handle, &createInfo, null, &fence)) {
             c.VK_SUCCESS => {
                 return .{
                     .handle = fence,
@@ -33,15 +33,15 @@ pub const VulkanFence = struct {
         }
     }
 
-    pub fn destroy(self: *VulkanFence, device: *const VulkanDevice) void {
-        c.vkDestroyFence(device.handle, self.handle, null);
+    pub fn destroy(self: *VulkanFence, context: *const VulkanContext) void {
+        c.vkDestroyFence(context.device.handle, self.handle, null);
     }
 
-    pub fn wait(self: *const VulkanFence, device: *const VulkanDevice) void {
-        vkCheck(c.vkWaitForFences(device.handle, 1, &self.handle, c.VK_TRUE, std.math.maxInt(u64)));
+    pub fn wait(self: *const VulkanFence, context: *const VulkanContext) void {
+        vkCheck(c.vkWaitForFences(context.device.handle, 1, &self.handle, c.VK_TRUE, std.math.maxInt(u64)));
     }
 
-    pub fn reset(self: *const VulkanFence, device: *const VulkanDevice) void {
-        vkCheck(c.vkResetFences(device.handle, 1, &self.handle));
+    pub fn reset(self: *const VulkanFence, context: *const VulkanContext) void {
+        vkCheck(c.vkResetFences(context.device.handle, 1, &self.handle));
     }
 };

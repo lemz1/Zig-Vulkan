@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
@@ -26,7 +26,7 @@ pub const VulkanSamplerAddressMode = enum(c.VkSamplerAddressMode) {
 pub const VulkanSampler = struct {
     handle: c.VkSampler,
 
-    pub fn new(device: *const VulkanDevice, filter: VulkanSamplerFilter, addressMode: VulkanSamplerAddressMode) !VulkanSampler {
+    pub fn new(context: *const VulkanContext, filter: VulkanSamplerFilter, addressMode: VulkanSamplerAddressMode) !VulkanSampler {
         var sampler: c.VkSampler = undefined;
         {
             var createInfo = c.VkSamplerCreateInfo{};
@@ -41,7 +41,7 @@ pub const VulkanSampler = struct {
             createInfo.maxAnisotropy = 1.0;
             createInfo.minLod = 0.0;
             createInfo.maxLod = 1.0;
-            switch (c.vkCreateSampler(device.handle, &createInfo, null, &sampler)) {
+            switch (c.vkCreateSampler(context.device.handle, &createInfo, null, &sampler)) {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Samper\n", .{});
@@ -55,7 +55,7 @@ pub const VulkanSampler = struct {
         };
     }
 
-    pub fn destroy(self: *VulkanSampler, device: *const VulkanDevice) void {
-        c.vkDestroySampler(device.handle, self.handle, null);
+    pub fn destroy(self: *VulkanSampler, context: *const VulkanContext) void {
+        c.vkDestroySampler(context.device.handle, self.handle, null);
     }
 };

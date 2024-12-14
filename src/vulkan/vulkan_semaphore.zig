@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
 const VulkanSemaphoreError = error{
@@ -14,12 +14,12 @@ const VulkanSemaphoreError = error{
 pub const VulkanSemaphore = struct {
     handle: c.VkSemaphore,
 
-    pub fn new(device: *const VulkanDevice) !VulkanSemaphore {
+    pub fn new(context: *const VulkanContext) !VulkanSemaphore {
         var createInfo = c.VkSemaphoreCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
         var semaphore: c.VkSemaphore = undefined;
-        switch (c.vkCreateSemaphore(device.handle, &createInfo, null, &semaphore)) {
+        switch (c.vkCreateSemaphore(context.device.handle, &createInfo, null, &semaphore)) {
             c.VK_SUCCESS => {
                 return .{
                     .handle = semaphore,
@@ -32,7 +32,7 @@ pub const VulkanSemaphore = struct {
         }
     }
 
-    pub fn destroy(self: *VulkanSemaphore, device: *const VulkanDevice) void {
-        c.vkDestroySemaphore(device.handle, self.handle, null);
+    pub fn destroy(self: *VulkanSemaphore, context: *const VulkanContext) void {
+        c.vkDestroySemaphore(context.device.handle, self.handle, null);
     }
 };

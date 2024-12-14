@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
 const vkCheck = base.vkCheck;
@@ -22,14 +22,14 @@ pub const VulkanBuffer = struct {
     uploadCmdPool: VulkanCommandPool,
     uploadCmdBuffer: VulkanCommandBuffer,
 
-    pub fn new(device: *const VulkanDevice, size: u64, usage: c.VkBufferUsageFlags, memoryProperties: c.VkMemoryPropertyFlags) !VulkanBuffer {
+    pub fn new(context: *const VulkanContext, size: u64, usage: c.VkBufferUsageFlags, memoryProperties: c.VkMemoryPropertyFlags) !VulkanBuffer {
         var createInfo = c.VkBufferCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         createInfo.size = size;
         createInfo.usage = usage;
 
         var buffer: c.VkBuffer = undefined;
-        switch (c.vkCreateBuffer(device.handle, &createInfo, null, &buffer)) {
+        switch (c.vkCreateBuffer(context.device.handle, &createInfo, null, &buffer)) {
             c.VK_SUCCESS => {},
             else => {
                 std.debug.print("[Vulkan] Could not create Buffer\n", .{});
@@ -38,9 +38,9 @@ pub const VulkanBuffer = struct {
         }
 
         var memoryRequirements: c.VkMemoryRequirements = undefined;
-        c.vkGetBufferMemoryRequirements(device.handle, buffer, &memoryRequirements);
+        c.vkGetBufferMemoryRequirements(context.device.handle, buffer, &memoryRequirements);
 
-        const memoryIndex = try base.findMemoryType(device, memoryRequirements.memoryTypeBits, memoryProperties);
+        const memoryIndex = try base.findMemoryType(context, memoryRequirements.memoryTypeBits, memoryProperties);
 
         var allocateInfo = c.VkMemoryAllocateInfo{};
         allocateInfo.sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -48,7 +48,7 @@ pub const VulkanBuffer = struct {
         allocateInfo.memoryTypeIndex = memoryIndex;
 
         var memory: c.VkDeviceMemory = undefined;
-        switch (c.vkAllocateMemory(device.handle, &allocateInfo, null, &memory)) {
+        switch (c.vkAllocateMemory(context.device.handle, &allocateInfo, null, &memory)) {
             c.VK_SUCCESS => {},
             else => {
                 std.debug.print("[Vulkan] Could not allocate Memory\n", .{});
@@ -56,10 +56,10 @@ pub const VulkanBuffer = struct {
             },
         }
 
-        vkCheck(c.vkBindBufferMemory(device.handle, buffer, memory, 0));
+        vkCheck(c.vkBindBufferMemory(context.device.handle, buffer, memory, 0));
 
-        const uploadCmdPool = try VulkanCommandPool.new(device, device.graphicsQueue.familyIndex);
-        const uploadCmdBuffer = try VulkanCommandBuffer.new(device, &uploadCmdPool);
+        const uploadCmdPool = try VulkanCommandPool.new(context, context.device.graphicsQueue.familyIndex);
+        const uploadCmdBuffer = try VulkanCommandBuffer.new(context, &uploadCmdPool);
 
         return .{
             .handle = buffer,
@@ -70,13 +70,13 @@ pub const VulkanBuffer = struct {
         };
     }
 
-    pub fn destroy(self: *VulkanBuffer, device: *const VulkanDevice) void {
-        self.uploadCmdPool.destroy(device);
-        c.vkFreeMemory(device.handle, self.memory, null);
-        c.vkDestroyBuffer(device.handle, self.handle, null);
+    pub fn destroy(self: *VulkanBuffer, context: *const VulkanContext) void {
+        self.uploadCmdPool.destroy(context);
+        c.vkFreeMemory(context.device.handle, self.memory, null);
+        c.vkDestroyBuffer(context.device.handle, self.handle, null);
     }
 
-    pub fn uploadData(self: *const VulkanBuffer, device: *const VulkanDevice, data: anytype) !void {
+    pub fn uploadData(self: *const VulkanBuffer, context: *const VulkanContext, data: anytype) !void {
         const typeInfo = @typeInfo(@TypeOf(data));
 
         comptime {
@@ -87,26 +87,26 @@ pub const VulkanBuffer = struct {
 
         const size: c.VkDeviceSize = data.len * @sizeOf(typeInfo.pointer.child);
 
-        if (device.hasResizableBAR) {
+        if (context.device.hasResizableBAR) {
             var mapped: ?*anyopaque = undefined;
-            vkCheck(c.vkMapMemory(device.handle, self.memory, 0, size, 0, &mapped));
+            vkCheck(c.vkMapMemory(context.device.handle, self.memory, 0, size, 0, &mapped));
             _ = memcpy(mapped, data.ptr, size);
-            c.vkUnmapMemory(device.handle, self.memory);
+            c.vkUnmapMemory(context.device.handle, self.memory);
         } else {
             var stagingBuffer = try VulkanBuffer.new(
-                device,
+                context,
                 size,
                 c.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                 c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             );
-            defer stagingBuffer.destroy(device);
+            defer stagingBuffer.destroy(context);
 
             var mapped: ?*anyopaque = undefined;
-            vkCheck(c.vkMapMemory(device.handle, stagingBuffer.memory, 0, size, 0, &mapped));
+            vkCheck(c.vkMapMemory(context.device.handle, stagingBuffer.memory, 0, size, 0, &mapped));
             _ = memcpy(mapped, data.ptr, size);
-            c.vkUnmapMemory(device.handle, stagingBuffer.memory);
+            c.vkUnmapMemory(context.device.handle, stagingBuffer.memory);
 
-            self.uploadCmdPool.reset(device);
+            self.uploadCmdPool.reset(context);
 
             self.uploadCmdBuffer.begin();
             self.uploadCmdBuffer.copyBuffer(&stagingBuffer, self, .{
@@ -120,8 +120,8 @@ pub const VulkanBuffer = struct {
             submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
             submitInfo.commandBufferCount = 1;
             submitInfo.pCommandBuffers = &self.uploadCmdBuffer.handle;
-            device.graphicsQueue.submit(&submitInfo, null);
-            device.graphicsQueue.wait();
+            context.device.graphicsQueue.submit(&submitInfo, null);
+            context.device.graphicsQueue.wait();
         }
     }
 };

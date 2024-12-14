@@ -5,7 +5,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Window = core.Window;
-const VulkanInstance = vulkan.VulkanInstance;
+const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
 const VulkanSurfaceError = error{
@@ -15,9 +15,9 @@ const VulkanSurfaceError = error{
 pub const VulkanSurface = struct {
     handle: c.VkSurfaceKHR,
 
-    pub fn new(instance: *const VulkanInstance, window: *const Window) !VulkanSurface {
+    pub fn new(context: *const VulkanContext, window: *const Window) !VulkanSurface {
         var surface: c.VkSurfaceKHR = undefined;
-        switch (window.createSurface(instance, @ptrCast(&surface))) {
+        switch (window.createSurface(&context.instance, @ptrCast(&surface))) {
             c.VK_SUCCESS => {
                 return .{
                     .handle = surface,
@@ -30,7 +30,7 @@ pub const VulkanSurface = struct {
         }
     }
 
-    pub fn destroy(self: *VulkanSurface, instance: *const VulkanInstance) void {
-        c.vkDestroySurfaceKHR(instance.handle, self.handle, null);
+    pub fn destroy(self: *VulkanSurface, context: *const VulkanContext) void {
+        c.vkDestroySurfaceKHR(context.instance.handle, self.handle, null);
     }
 };

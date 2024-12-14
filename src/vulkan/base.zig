@@ -2,7 +2,7 @@ const std = @import("std");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const cStrcmp = @cImport(@cInclude("string.h")).strcmp;
 
 const VulkanUtilError = error{
@@ -22,9 +22,9 @@ pub fn vkCheck(res: c.VkResult) void {
     }
 }
 
-pub fn findMemoryType(device: *const VulkanDevice, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !u32 {
+pub fn findMemoryType(context: *const VulkanContext, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !u32 {
     var deviceMemoryProperties: c.VkPhysicalDeviceMemoryProperties = undefined;
-    c.vkGetPhysicalDeviceMemoryProperties(device.physicalDevice, &deviceMemoryProperties);
+    c.vkGetPhysicalDeviceMemoryProperties(context.device.physicalDevice, &deviceMemoryProperties);
 
     for (0..deviceMemoryProperties.memoryTypeCount) |i| {
         if ((typeFilter & (@as(u32, 1) << @intCast(i))) != 0) {

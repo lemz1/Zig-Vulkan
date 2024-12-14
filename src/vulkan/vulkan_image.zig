@@ -5,7 +5,7 @@ const util = @import("../util.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
 const VulkanBuffer = vulkan.VulkanBuffer;
@@ -27,7 +27,7 @@ pub const VulkanImage = struct {
     uploadCmdPool: VulkanCommandPool,
     uploadCmdBuffer: VulkanCommandBuffer,
 
-    pub fn new(device: *const VulkanDevice, imageData: *const ImageData, usage: c.VkImageUsageFlags) !VulkanImage {
+    pub fn new(context: *const VulkanContext, imageData: *const ImageData, usage: c.VkImageUsageFlags) !VulkanImage {
         var image: c.VkImage = undefined;
         {
             var createInfo = c.VkImageCreateInfo{};
@@ -45,7 +45,7 @@ pub const VulkanImage = struct {
             createInfo.samples = c.VK_SAMPLE_COUNT_1_BIT;
             createInfo.sharingMode = c.VK_SHARING_MODE_EXCLUSIVE;
 
-            switch (c.vkCreateImage(device.handle, &createInfo, null, &image)) {
+            switch (c.vkCreateImage(context.device.handle, &createInfo, null, &image)) {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Image\n", .{});
@@ -57,13 +57,13 @@ pub const VulkanImage = struct {
         var memory: c.VkDeviceMemory = undefined;
         {
             var memoryRequirements: c.VkMemoryRequirements = undefined;
-            c.vkGetImageMemoryRequirements(device.handle, image, &memoryRequirements);
+            c.vkGetImageMemoryRequirements(context.device.handle, image, &memoryRequirements);
 
             var allocateInfo = c.VkMemoryAllocateInfo{};
             allocateInfo.sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
             allocateInfo.allocationSize = memoryRequirements.size;
-            allocateInfo.memoryTypeIndex = try base.findMemoryType(device, memoryRequirements.memoryTypeBits, c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-            switch (c.vkAllocateMemory(device.handle, &allocateInfo, null, &memory)) {
+            allocateInfo.memoryTypeIndex = try base.findMemoryType(context, memoryRequirements.memoryTypeBits, c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            switch (c.vkAllocateMemory(context.device.handle, &allocateInfo, null, &memory)) {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not allocate Memory\n", .{});
@@ -72,7 +72,7 @@ pub const VulkanImage = struct {
             }
         }
 
-        vkCheck(c.vkBindImageMemory(device.handle, image, memory, 0));
+        vkCheck(c.vkBindImageMemory(context.device.handle, image, memory, 0));
 
         var view: c.VkImageView = undefined;
         {
@@ -89,7 +89,7 @@ pub const VulkanImage = struct {
             createInfo.subresourceRange.aspectMask = aspect;
             createInfo.subresourceRange.levelCount = 1;
             createInfo.subresourceRange.layerCount = 1;
-            switch (c.vkCreateImageView(device.handle, &createInfo, null, &view)) {
+            switch (c.vkCreateImageView(context.device.handle, &createInfo, null, &view)) {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Image View\n", .{});
@@ -98,8 +98,8 @@ pub const VulkanImage = struct {
             }
         }
 
-        const uploadCmdPool = try VulkanCommandPool.new(device, device.graphicsQueue.familyIndex);
-        const uploadCmdBuffer = try VulkanCommandBuffer.new(device, &uploadCmdPool);
+        const uploadCmdPool = try VulkanCommandPool.new(context, context.device.graphicsQueue.familyIndex);
+        const uploadCmdBuffer = try VulkanCommandBuffer.new(context, &uploadCmdPool);
 
         return .{
             .handle = image,
@@ -111,17 +111,17 @@ pub const VulkanImage = struct {
         };
     }
 
-    pub fn destroy(self: *VulkanImage, device: *const VulkanDevice) void {
-        self.uploadCmdPool.destroy(device);
+    pub fn destroy(self: *VulkanImage, context: *const VulkanContext) void {
+        self.uploadCmdPool.destroy(context);
 
-        c.vkDestroyImageView(device.handle, self.view, null);
-        c.vkDestroyImage(device.handle, self.handle, null);
-        c.vkFreeMemory(device.handle, self.memory, null);
+        c.vkDestroyImageView(context.device.handle, self.view, null);
+        c.vkDestroyImage(context.device.handle, self.handle, null);
+        c.vkFreeMemory(context.device.handle, self.memory, null);
     }
 
     pub fn uploadData(
         self: *const VulkanImage,
-        device: *const VulkanDevice,
+        context: *const VulkanContext,
         imageData: *const ImageData,
         finalLayout: c.VkImageLayout,
         _: c.VkAccessFlags,
@@ -131,19 +131,19 @@ pub const VulkanImage = struct {
         const size: c.VkDeviceSize = imageData.size;
 
         var stagingBuffer = try VulkanBuffer.new(
-            device,
+            context,
             size,
             c.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
             c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         );
-        defer stagingBuffer.destroy(device);
+        defer stagingBuffer.destroy(context);
 
         var mapped: ?*anyopaque = undefined;
-        vkCheck(c.vkMapMemory(device.handle, stagingBuffer.memory, 0, size, 0, &mapped));
+        vkCheck(c.vkMapMemory(context.device.handle, stagingBuffer.memory, 0, size, 0, &mapped));
         _ = memcpy(mapped, pixels, size);
-        c.vkUnmapMemory(device.handle, stagingBuffer.memory);
+        c.vkUnmapMemory(context.device.handle, stagingBuffer.memory);
 
-        self.uploadCmdPool.reset(device);
+        self.uploadCmdPool.reset(context);
 
         self.uploadCmdBuffer.begin();
         {
@@ -216,7 +216,7 @@ pub const VulkanImage = struct {
         submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &self.uploadCmdBuffer.handle;
-        device.graphicsQueue.submit(&submitInfo, null);
-        device.graphicsQueue.wait();
+        context.device.graphicsQueue.submit(&submitInfo, null);
+        context.device.graphicsQueue.wait();
     }
 };

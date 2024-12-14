@@ -4,7 +4,7 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const VulkanDevice = vulkan.VulkanDevice;
+const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
 const VulkanRenderPassError = error{
@@ -14,7 +14,7 @@ const VulkanRenderPassError = error{
 pub const VulkanRenderPass = struct {
     handle: c.VkRenderPass,
 
-    pub fn new(device: *const VulkanDevice, format: c.VkFormat) !VulkanRenderPass {
+    pub fn new(context: *const VulkanContext, format: c.VkFormat) !VulkanRenderPass {
         var attachmentDescriptions = [2]c.VkAttachmentDescription{ undefined, undefined };
         attachmentDescriptions[0] = c.VkAttachmentDescription{};
         attachmentDescriptions[0].format = format;
@@ -54,7 +54,7 @@ pub const VulkanRenderPass = struct {
         createInfo.pSubpasses = &subpass;
 
         var renderPass: c.VkRenderPass = undefined;
-        switch (c.vkCreateRenderPass(device.handle, &createInfo, null, &renderPass)) {
+        switch (c.vkCreateRenderPass(context.device.handle, &createInfo, null, &renderPass)) {
             c.VK_SUCCESS => {
                 return .{
                     .handle = renderPass,
@@ -67,7 +67,7 @@ pub const VulkanRenderPass = struct {
         }
     }
 
-    pub fn destroy(self: *VulkanRenderPass, device: *const VulkanDevice) void {
-        c.vkDestroyRenderPass(device.handle, self.handle, null);
+    pub fn destroy(self: *VulkanRenderPass, context: *const VulkanContext) void {
+        c.vkDestroyRenderPass(context.device.handle, self.handle, null);
     }
 };

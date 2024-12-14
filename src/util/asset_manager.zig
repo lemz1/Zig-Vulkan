@@ -30,7 +30,7 @@ const AssetEntry = struct {
 
         switch (self.asset) {
             .image => |*image| {
-                image.destroy(&self.manager.ctx.device);
+                image.destroy(self.manager.vulkanContext);
             },
             .shader => |*shader| {
                 shader.destroy();
@@ -59,13 +59,17 @@ fn AssetHandle(comptime T: type) type {
 }
 
 pub const AssetManager = struct {
-    ctx: *const VulkanContext = undefined,
+    vulkanContext: *const VulkanContext = undefined,
     assets: StringHashMap(AssetEntry) = undefined,
 
-    pub fn new(ctx: *const VulkanContext) AssetManager {
+    allocator: Allocator,
+
+    pub fn new(vulkanContext: *const VulkanContext, allocator: Allocator) AssetManager {
         return .{
-            .ctx = ctx,
-            .assets = StringHashMap(AssetEntry).init(ctx.allocator),
+            .vulkanContext = vulkanContext,
+            .assets = StringHashMap(AssetEntry).init(allocator),
+
+            .allocator = allocator,
         };
     }
 
@@ -84,7 +88,7 @@ pub const AssetManager = struct {
     }
 
     pub fn clearUnusedAssets(self: *AssetManager) void {
-        var assetsToRemove = std.ArrayList(*[]const u8).init(self.ctx.allocator);
+        var assetsToRemove = std.ArrayList(*[]const u8).init(self.allocator);
 
         var it = self.assets.iterator();
         while (it.next()) |entry| {
@@ -107,13 +111,13 @@ pub const AssetManager = struct {
             defer imageData.destroy();
 
             const image = try VulkanImage.new(
-                &self.ctx.device,
+                self.vulkanContext,
                 &imageData,
                 c.VK_IMAGE_USAGE_SAMPLED_BIT | c.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             );
 
             try image.uploadData(
-                &self.ctx.device,
+                self.vulkanContext,
                 &imageData,
                 c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 c.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -140,7 +144,7 @@ pub const AssetManager = struct {
                 .{
                     .manager = self,
                     .asset = .{
-                        .shader = try RuntimeShader.fromFile(path, stage, self.ctx.allocator),
+                        .shader = try RuntimeShader.fromFile(path, stage, self.allocator),
                     },
                 },
             );
