@@ -142,7 +142,7 @@ pub const Pipeline = struct {
 
             const binding = spvcCompiler.getDecoration(spvcResource.id, .Binding);
             const location = spvcCompiler.getDecoration(spvcResource.id, .Location);
-            const format = try getFormat(baseType, vectorSize);
+            const format = getFormat(baseType, vectorSize);
 
             try attributes.append(.{
                 .binding = binding,
@@ -151,7 +151,7 @@ pub const Pipeline = struct {
                 .offset = offsets[binding],
             });
 
-            offsets[binding] += 2 * @sizeOf(f32);
+            offsets[binding] += getSize(format);
         }
 
         return attributes.toOwnedSlice();
@@ -257,27 +257,158 @@ pub const Pipeline = struct {
         return poolSizes.toOwnedSlice();
     }
 
-    fn getFormat(baseType: SPVCBaseType, vectorSize: u32) !c.VkFormat {
+    fn getFormat(baseType: SPVCBaseType, vectorSize: u32) c.VkFormat {
         switch (baseType) {
+            .Boolean => return c.VK_FORMAT_R8_SINT,
+            .Int8 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R8_SINT,
+                    2 => return c.VK_FORMAT_R8G8_SINT,
+                    3 => return c.VK_FORMAT_R8G8B8_SINT,
+                    4 => return c.VK_FORMAT_R8G8B8A8_SINT,
+                    else => unreachable,
+                }
+            },
+            .UInt8 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R8_UINT,
+                    2 => return c.VK_FORMAT_R8G8_UINT,
+                    3 => return c.VK_FORMAT_R8G8B8_UINT,
+                    4 => return c.VK_FORMAT_R8G8B8A8_UINT,
+                    else => unreachable,
+                }
+            },
+            .Int16 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R16_SINT,
+                    2 => return c.VK_FORMAT_R16G16_SINT,
+                    3 => return c.VK_FORMAT_R16G16B16_SINT,
+                    4 => return c.VK_FORMAT_R16G16B16A16_SINT,
+                    else => unreachable,
+                }
+            },
+            .UInt16 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R16_UINT,
+                    2 => return c.VK_FORMAT_R16G16_UINT,
+                    3 => return c.VK_FORMAT_R16G16B16_UINT,
+                    4 => return c.VK_FORMAT_R16G16B16A16_UINT,
+                    else => unreachable,
+                }
+            },
+            .Int32 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R32_SINT,
+                    2 => return c.VK_FORMAT_R32G32_SINT,
+                    3 => return c.VK_FORMAT_R32G32B32_SINT,
+                    4 => return c.VK_FORMAT_R32G32B32A32_SINT,
+                    else => unreachable,
+                }
+            },
+            .UInt32 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R32_UINT,
+                    2 => return c.VK_FORMAT_R32G32_UINT,
+                    3 => return c.VK_FORMAT_R32G32B32_UINT,
+                    4 => return c.VK_FORMAT_R32G32B32A32_UINT,
+                    else => unreachable,
+                }
+            },
+            .Int64 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R64_SINT,
+                    2 => return c.VK_FORMAT_R64G64_SINT,
+                    3 => return c.VK_FORMAT_R64G64B64_SINT,
+                    4 => return c.VK_FORMAT_R64G64B64A64_SINT,
+                    else => unreachable,
+                }
+            },
+            .UInt64 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R64_UINT,
+                    2 => return c.VK_FORMAT_R64G64_UINT,
+                    3 => return c.VK_FORMAT_R64G64B64_UINT,
+                    4 => return c.VK_FORMAT_R64G64B64A64_UINT,
+                    else => unreachable,
+                }
+            },
+            .Float16 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R16_SFLOAT,
+                    2 => return c.VK_FORMAT_R16G16_SFLOAT,
+                    3 => return c.VK_FORMAT_R16G16B16_SFLOAT,
+                    4 => return c.VK_FORMAT_R16G16B16A16_SFLOAT,
+                    else => unreachable,
+                }
+            },
             .Float32 => {
                 switch (vectorSize) {
                     1 => return c.VK_FORMAT_R32_SFLOAT,
                     2 => return c.VK_FORMAT_R32G32_SFLOAT,
                     3 => return c.VK_FORMAT_R32G32B32_SFLOAT,
                     4 => return c.VK_FORMAT_R32G32B32A32_SFLOAT,
-                    else => return error.LOL,
+                    else => unreachable,
                 }
             },
-            else => return error.LOL,
+            .Float64 => {
+                switch (vectorSize) {
+                    1 => return c.VK_FORMAT_R64_SFLOAT,
+                    2 => return c.VK_FORMAT_R64G64_SFLOAT,
+                    3 => return c.VK_FORMAT_R64G64B64_SFLOAT,
+                    4 => return c.VK_FORMAT_R64G64B64A64_SFLOAT,
+                    else => unreachable,
+                }
+            },
+            else => return c.VK_FORMAT_UNDEFINED,
         }
     }
 
     fn getSize(format: c.VkFormat) u32 {
         switch (format) {
-            c.VK_FORMAT_R32_SFLOAT => return @sizeOf(f32),
+            c.VK_FORMAT_R8_SINT => return @sizeOf(i8) * 1,
+            c.VK_FORMAT_R8G8_SINT => return @sizeOf(i8) * 2,
+            c.VK_FORMAT_R8G8B8_SINT => return @sizeOf(i8) * 3,
+            c.VK_FORMAT_R8G8B8A8_SINT => return @sizeOf(i8) * 4,
+            c.VK_FORMAT_R8_UINT => return @sizeOf(u8) * 1,
+            c.VK_FORMAT_R8G8_UINT => return @sizeOf(u8) * 2,
+            c.VK_FORMAT_R8G8B8_UINT => return @sizeOf(u8) * 3,
+            c.VK_FORMAT_R8G8B8A8_UINT => return @sizeOf(u8) * 4,
+            c.VK_FORMAT_R16_SINT => return @sizeOf(i16) * 1,
+            c.VK_FORMAT_R16G16_SINT => return @sizeOf(i16) * 2,
+            c.VK_FORMAT_R16G16B16_SINT => return @sizeOf(i16) * 3,
+            c.VK_FORMAT_R16G16B16A16_SINT => return @sizeOf(i16) * 4,
+            c.VK_FORMAT_R16_UINT => return @sizeOf(u16) * 1,
+            c.VK_FORMAT_R16G16_UINT => return @sizeOf(u16) * 2,
+            c.VK_FORMAT_R16G16B16_UINT => return @sizeOf(u16) * 3,
+            c.VK_FORMAT_R16G16B16A16_UINT => return @sizeOf(u16) * 4,
+            c.VK_FORMAT_R32_SINT => return @sizeOf(i32) * 1,
+            c.VK_FORMAT_R32G32_SINT => return @sizeOf(i32) * 2,
+            c.VK_FORMAT_R32G32B32_SINT => return @sizeOf(i32) * 3,
+            c.VK_FORMAT_R32G32B32A32_SINT => return @sizeOf(i32) * 4,
+            c.VK_FORMAT_R32_UINT => return @sizeOf(u32) * 1,
+            c.VK_FORMAT_R32G32_UINT => return @sizeOf(u32) * 2,
+            c.VK_FORMAT_R32G32B32_UINT => return @sizeOf(u32) * 3,
+            c.VK_FORMAT_R32G32B32A32_UINT => return @sizeOf(u32) * 4,
+            c.VK_FORMAT_R64_SINT => return @sizeOf(i64) * 1,
+            c.VK_FORMAT_R64G64_SINT => return @sizeOf(i64) * 2,
+            c.VK_FORMAT_R64G64B64_SINT => return @sizeOf(i64) * 3,
+            c.VK_FORMAT_R64G64B64A64_SINT => return @sizeOf(i64) * 4,
+            c.VK_FORMAT_R64_UINT => return @sizeOf(u64) * 1,
+            c.VK_FORMAT_R64G64_UINT => return @sizeOf(u64) * 2,
+            c.VK_FORMAT_R64G64B64_UINT => return @sizeOf(u64) * 3,
+            c.VK_FORMAT_R64G64B64A64_UINT => return @sizeOf(u64) * 4,
+            c.VK_FORMAT_R16_SFLOAT => return @sizeOf(f16) * 1,
+            c.VK_FORMAT_R16G16_SFLOAT => return @sizeOf(f16) * 2,
+            c.VK_FORMAT_R16G16B16_SFLOAT => return @sizeOf(f16) * 3,
+            c.VK_FORMAT_R16G16B16A16_SFLOAT => return @sizeOf(f16) * 4,
+            c.VK_FORMAT_R32_SFLOAT => return @sizeOf(f32) * 1,
             c.VK_FORMAT_R32G32_SFLOAT => return @sizeOf(f32) * 2,
             c.VK_FORMAT_R32G32B32_SFLOAT => return @sizeOf(f32) * 3,
             c.VK_FORMAT_R32G32B32A32_SFLOAT => return @sizeOf(f32) * 4,
+            c.VK_FORMAT_R64_SFLOAT => return @sizeOf(f64) * 1,
+            c.VK_FORMAT_R64G64_SFLOAT => return @sizeOf(f64) * 2,
+            c.VK_FORMAT_R64G64B64_SFLOAT => return @sizeOf(f64) * 3,
+            c.VK_FORMAT_R64G64B64A64_SFLOAT => return @sizeOf(f64) * 4,
             else => return 0,
         }
     }
