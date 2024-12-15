@@ -8,10 +8,6 @@ const Window = core.Window;
 const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
-const VulkanSurfaceError = error{
-    CreateSurface,
-};
-
 pub const VulkanSurface = struct {
     handle: c.VkSurfaceKHR,
 
@@ -25,7 +21,7 @@ pub const VulkanSurface = struct {
             },
             else => {
                 std.debug.print("[Vulkan] Could not create Surface\n", .{});
-                return VulkanSurfaceError.CreateSurface;
+                return error.CreateSurface;
             },
         }
     }

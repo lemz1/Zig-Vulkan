@@ -5,10 +5,6 @@ const c = @cImport(@cInclude("spirv_cross_c.h"));
 const SPVCContext = spvc.SPVCContext;
 const SPVCParsedIR = spvc.SPVCParsedIR;
 
-const SPVCCompilerError = error{
-    CreateSPVCCompiler,
-};
-
 pub const SPVCDecoration = enum(c.SpvDecoration) {
     RelaxedPrecision = c.SpvDecorationRelaxedPrecision,
     SpecId = c.SpvDecorationSpecId,
@@ -119,7 +115,7 @@ pub const SPVCCompiler = struct {
             c.SPVC_SUCCESS => {},
             else => {
                 std.debug.print("[SPIRV-Cross] Could not create Compiler\n", .{});
-                return SPVCCompilerError.CreateSPVCCompiler;
+                return error.CreateSPVCCompiler;
             },
         }
 

@@ -11,10 +11,6 @@ const VulkanImage = vulkan.VulkanImage;
 const VulkanBuffer = vulkan.VulkanBuffer;
 const vkCheck = base.vkCheck;
 
-const VulkanDescriptorSetLayoutError = error{
-    CreateDescriptorSetLayout,
-};
-
 pub const VulkanDescriptorSetLayout = struct {
     handle: c.VkDescriptorSetLayout,
 
@@ -33,7 +29,7 @@ pub const VulkanDescriptorSetLayout = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not Create Descriptor Set Layout\n", .{});
-                    return VulkanDescriptorSetLayoutError.CreateDescriptorSetLayout;
+                    return error.CreateDescriptorSetLayout;
                 },
             }
         }

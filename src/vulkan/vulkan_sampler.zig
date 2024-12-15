@@ -8,10 +8,6 @@ const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
-const VulkanSamplerError = error{
-    CreateSampler,
-};
-
 pub const VulkanSamplerFilter = enum(c.VkFilter) {
     Linear = c.VK_FILTER_LINEAR,
     Nearest = c.VK_FILTER_NEAREST,
@@ -45,7 +41,7 @@ pub const VulkanSampler = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Samper\n", .{});
-                    return VulkanSamplerError.CreateSampler;
+                    return error.CreateSampler;
                 },
             }
         }

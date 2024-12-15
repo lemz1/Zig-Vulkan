@@ -10,10 +10,6 @@ const VulkanFence = vulkan.VulkanFence;
 const VulkanSemaphore = vulkan.VulkanSemaphore;
 const vkCheck = base.vkCheck;
 
-const VulkanSwapchainError = error{
-    CreateSwapchain,
-};
-
 pub const VulkanSwapchain = struct {
     handle: c.VkSwapchainKHR,
     width: u32,
@@ -76,7 +72,7 @@ pub const VulkanSwapchain = struct {
             c.VK_SUCCESS => {},
             else => {
                 std.debug.print("[Vulkan] Could not create Swapchain\n", .{});
-                return VulkanSwapchainError.CreateSwapchain;
+                return error.CreateSwapchain;
             },
         }
 

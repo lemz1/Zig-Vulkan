@@ -6,10 +6,6 @@ const SPVCCompiler = spvc.SPVCCompiler;
 
 const spvcCheck = @import("base.zig").spvcCheck;
 
-const SPVCTypeError = error{
-    GetSPVCType,
-};
-
 pub const SPVCBaseType = enum(c.spvc_basetype) {
     Unknown = c.SPVC_BASETYPE_UNKNOWN,
     Void = c.SPVC_BASETYPE_VOID,
@@ -38,7 +34,7 @@ pub const SPVCType = struct {
     handle: c.spvc_type,
 
     pub fn new(compiler: *const SPVCCompiler, typeId: c.spvc_type_id) !SPVCType {
-        const @"type" = c.spvc_compiler_get_type_handle(compiler.handle, typeId) orelse return SPVCTypeError.GetSPVCType;
+        const @"type" = c.spvc_compiler_get_type_handle(compiler.handle, typeId) orelse return error.GetSPVCType;
         return .{
             .handle = @"type",
         };

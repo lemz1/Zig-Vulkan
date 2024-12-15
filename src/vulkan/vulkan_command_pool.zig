@@ -7,10 +7,6 @@ const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
-const VulkanCommandPoolError = error{
-    CreateCommandPool,
-};
-
 pub const VulkanCommandPool = struct {
     handle: c.VkCommandPool,
 
@@ -29,7 +25,7 @@ pub const VulkanCommandPool = struct {
             },
             else => {
                 std.debug.print("[Vulkan] Could not create Command Pool\n", .{});
-                return VulkanCommandPoolError.CreateCommandPool;
+                return error.CreateCommandPool;
             },
         }
     }

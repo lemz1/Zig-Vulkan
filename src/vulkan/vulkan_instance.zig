@@ -7,11 +7,6 @@ const Allocator = std.mem.Allocator;
 const VulkanDevice = vulkan.VulkanDevice;
 const vkCheck = base.vkCheck;
 
-const VulkanInstanceError = error{
-    CreateInstance,
-    CreateDebugCallback,
-};
-
 pub const VulkanInstance = struct {
     handle: c.VkInstance,
     debugCallback: c.VkDebugUtilsMessengerEXT,
@@ -76,7 +71,7 @@ pub const VulkanInstance = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Instance\n", .{});
-                    return VulkanInstanceError.CreateInstance;
+                    return error.CreateInstance;
                 },
             }
         }
@@ -94,7 +89,7 @@ pub const VulkanInstance = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Debug Callback\n", .{});
-                    return VulkanInstanceError.CreateDebugCallback;
+                    return error.CreateDebugCallback;
                 },
             }
         }

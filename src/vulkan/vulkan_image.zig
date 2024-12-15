@@ -13,12 +13,6 @@ const ImageData = util.ImageData;
 const vkCheck = base.vkCheck;
 const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
-const VulkanImageError = error{
-    CreateImage,
-    AllocateMemory,
-    CreateImageView,
-};
-
 pub const VulkanImage = struct {
     handle: c.VkImage,
     view: c.VkImageView,
@@ -49,7 +43,7 @@ pub const VulkanImage = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Image\n", .{});
-                    return VulkanImageError.CreateImage;
+                    return error.CreateImage;
                 },
             }
         }
@@ -67,7 +61,7 @@ pub const VulkanImage = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not allocate Memory\n", .{});
-                    return VulkanImageError.AllocateMemory;
+                    return error.AllocateMemory;
                 },
             }
         }
@@ -93,7 +87,7 @@ pub const VulkanImage = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Image View\n", .{});
-                    return VulkanImageError.CreateImageView;
+                    return error.CreateImageView;
                 },
             }
         }

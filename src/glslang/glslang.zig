@@ -4,10 +4,6 @@ const c = @cImport({
     @cInclude("glslang/Public/resource_limits_c.h");
 });
 
-const GLSLangError = error{
-    InitializeProcess,
-};
-
 var initialized: bool = false;
 pub const GLSLang = struct {
     pub fn init() !void {
@@ -16,7 +12,7 @@ pub const GLSLang = struct {
         }
 
         if (c.glslang_initialize_process() == 0) {
-            return GLSLangError.InitializeProcess;
+            return error.InitializeProcess;
         }
 
         initialized = true;

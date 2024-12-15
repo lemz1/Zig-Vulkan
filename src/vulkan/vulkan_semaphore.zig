@@ -7,10 +7,6 @@ const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
-const VulkanSemaphoreError = error{
-    CreateSemaphore,
-};
-
 pub const VulkanSemaphore = struct {
     handle: c.VkSemaphore,
 
@@ -27,7 +23,7 @@ pub const VulkanSemaphore = struct {
             },
             else => {
                 std.debug.print("[Vulkan] Could not create Semaphore\n", .{});
-                return VulkanSemaphoreError.CreateSemaphore;
+                return error.CreateSemaphore;
             },
         }
     }

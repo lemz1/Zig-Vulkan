@@ -3,11 +3,6 @@ const c = @cImport({
     @cInclude("vulkan/vulkan.h");
 });
 
-const ImageDataError = error{
-    LoadImage,
-    InvalidFormat,
-};
-
 pub const ImageFormat = enum(c.VkFormat) {
     RGBA8 = c.VK_FORMAT_R8G8B8A8_UNORM,
     RGBA32 = c.VK_FORMAT_R32G32B32A32_SFLOAT,
@@ -50,11 +45,11 @@ pub const ImageData = struct {
         const pixels: ?*anyopaque = switch (format) {
             .RGBA8 => c.stbi_load(path.ptr, &width, &height, &channels, 4),
             .RGBA32 => c.stbi_loadf(path.ptr, &width, &height, &channels, 4),
-            else => return ImageDataError.InvalidFormat,
+            else => return error.InvalidFormat,
         };
 
         if (pixels == null) {
-            return ImageDataError.LoadImage;
+            return error.LoadImage;
         }
 
         const uWidth: u32 = @intCast(width);

@@ -7,10 +7,6 @@ const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
-const VulkanFenceError = error{
-    CreateFence,
-};
-
 pub const VulkanFence = struct {
     handle: c.VkFence,
 
@@ -28,7 +24,7 @@ pub const VulkanFence = struct {
             },
             else => {
                 std.debug.print("[Vulkan] Could not create Fence\n", .{});
-                return VulkanFenceError.CreateFence;
+                return error.CreateFence;
             },
         }
     }

@@ -10,11 +10,6 @@ const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
 const vkCheck = base.vkCheck;
 const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
-const VulkanBufferError = error{
-    CreateBuffer,
-    CreateMemory,
-};
-
 pub const VulkanBuffer = struct {
     handle: c.VkBuffer,
     memory: c.VkDeviceMemory,
@@ -33,7 +28,7 @@ pub const VulkanBuffer = struct {
             c.VK_SUCCESS => {},
             else => {
                 std.debug.print("[Vulkan] Could not create Buffer\n", .{});
-                return VulkanBufferError.CreateBuffer;
+                return error.CreateBuffer;
             },
         }
 
@@ -52,7 +47,7 @@ pub const VulkanBuffer = struct {
             c.VK_SUCCESS => {},
             else => {
                 std.debug.print("[Vulkan] Could not allocate Memory\n", .{});
-                return VulkanBufferError.CreateBuffer;
+                return error.CreateBuffer;
             },
         }
 

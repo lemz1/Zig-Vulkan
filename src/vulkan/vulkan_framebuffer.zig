@@ -8,10 +8,6 @@ const VulkanContext = vulkan.VulkanContext;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
 const vkCheck = base.vkCheck;
 
-const VulkanFramebufferError = error{
-    CreateFramebuffer,
-};
-
 pub const VulkanFramebuffer = struct {
     handle: c.VkFramebuffer,
     width: u32,
@@ -45,7 +41,7 @@ pub const VulkanFramebuffer = struct {
             },
             else => {
                 std.debug.print("[Vulkan] Could not create Framebuffer\n", .{});
-                return VulkanFramebufferError.CreateFramebuffer;
+                return error.CreateFramebuffer;
             },
         }
     }

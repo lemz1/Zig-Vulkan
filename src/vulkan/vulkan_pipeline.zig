@@ -10,11 +10,6 @@ const VulkanDescriptorSetLayout = vulkan.VulkanDescriptorSetLayout;
 const VulkanShaderModule = vulkan.VulkanShaderModule;
 const vkCheck = base.vkCheck;
 
-const VulkanPipelineError = error{
-    CreatePipeline,
-    CreatePipelineLayout,
-};
-
 pub const VulkanPipeline = struct {
     handle: c.VkPipeline,
     layout: c.VkPipelineLayout,
@@ -118,7 +113,7 @@ pub const VulkanPipeline = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not create Pipeline Layout\n", .{});
-                    return VulkanPipelineError.CreatePipelineLayout;
+                    return error.CreatePipelineLayout;
                 },
             }
         }
@@ -150,7 +145,7 @@ pub const VulkanPipeline = struct {
                 },
                 else => {
                     std.debug.print("[Vulkan] Could not create Pipeline\n", .{});
-                    return VulkanPipelineError.CreatePipeline;
+                    return error.CreatePipeline;
                 },
             }
         }

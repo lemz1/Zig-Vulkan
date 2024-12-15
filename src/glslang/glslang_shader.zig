@@ -6,12 +6,6 @@ const c = @cImport({
 
 const GLSLang = glslang.GLSLang;
 
-const GLSLangShaderError = error{
-    CreateShader,
-    PreprocessShader,
-    ParseShader,
-};
-
 pub const GLSLangShaderStage = enum(c.glslang_stage_t) {
     Vertex = c.GLSLANG_STAGE_VERTEX,
     TessControl = c.GLSLANG_STAGE_TESSCONTROL,
@@ -49,14 +43,14 @@ pub const GLSLangShader = struct {
         input.messages = c.GLSLANG_MSG_DEFAULT_BIT;
         input.resource = c.glslang_default_resource();
 
-        const shader = c.glslang_shader_create(&input) orelse return GLSLangShaderError.CreateShader;
+        const shader = c.glslang_shader_create(&input) orelse return error.CreateShader;
 
         if (c.glslang_shader_preprocess(shader, &input) == 0) {
-            return GLSLangShaderError.PreprocessShader;
+            return error.PreprocessShader;
         }
 
         if (c.glslang_shader_parse(shader, &input) == 0) {
-            return GLSLangShaderError.ParseShader;
+            return error.ParseShader;
         }
 
         return .{

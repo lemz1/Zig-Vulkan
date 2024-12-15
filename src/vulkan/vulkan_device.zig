@@ -8,11 +8,6 @@ const VulkanInstance = vulkan.VulkanInstance;
 const VulkanQueue = vulkan.VulkanQueue;
 const vkCheck = base.vkCheck;
 
-const VulkanDeviceError = error{
-    CreateDevice,
-    NoGPUsFound,
-};
-
 pub const VulkanDevice = struct {
     handle: c.VkDevice,
     physicalDevice: c.VkPhysicalDevice,
@@ -29,7 +24,7 @@ pub const VulkanDevice = struct {
         vkCheck(c.vkEnumeratePhysicalDevices(instance.handle, &deviceCount, physicalDevices.ptr));
 
         if (physicalDevices.len == 0) {
-            return VulkanDeviceError.NoGPUsFound;
+            return error.NoGPUsFound;
         }
 
         std.debug.print("Found {d} GPU{s}\n", .{ physicalDevices.len, if (physicalDevices.len > 1) "s" else "" });
@@ -111,7 +106,7 @@ pub const VulkanDevice = struct {
             c.VK_SUCCESS => {},
             else => {
                 std.debug.print("[Vulkan] Could not Create Device\n", .{});
-                return VulkanDeviceError.CreateDevice;
+                return error.CreateDevice;
             },
         }
 

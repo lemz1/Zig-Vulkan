@@ -6,10 +6,6 @@ const SPVCCompiler = spvc.SPVCCompiler;
 
 const spvcCheck = @import("base.zig").spvcCheck;
 
-const SPVCResourcesError = error{
-    CreateSPVCResources,
-};
-
 pub const SPVCResourceType = enum(c.spvc_resource_type) {
     Unknown = c.SPVC_RESOURCE_TYPE_UNKNOWN,
     UniformBuffer = c.SPVC_RESOURCE_TYPE_UNIFORM_BUFFER,
@@ -44,7 +40,7 @@ pub const SPVCResources = struct {
             c.SPVC_SUCCESS => {},
             else => {
                 std.debug.print("[SPIRV-Cross] Could not create Resources\n", .{});
-                return SPVCResourcesError.CreateSPVCResources;
+                return error.CreateSPVCResources;
             },
         }
 

@@ -12,10 +12,6 @@ const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanImage = vulkan.VulkanImage;
 const vkCheck = base.vkCheck;
 
-const VulkanCommandBufferError = error{
-    CreateCommandBuffer,
-};
-
 pub const VulkanCommandBuffer = struct {
     handle: c.VkCommandBuffer,
 
@@ -35,7 +31,7 @@ pub const VulkanCommandBuffer = struct {
             },
             else => {
                 std.debug.print("[Vulkan] Could not create Command Buffer\n", .{});
-                return VulkanCommandBufferError.CreateCommandBuffer;
+                return error.CreateCommandBuffer;
             },
         }
     }

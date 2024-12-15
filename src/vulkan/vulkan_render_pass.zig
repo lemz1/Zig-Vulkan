@@ -7,10 +7,6 @@ const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
-const VulkanRenderPassError = error{
-    CreateRenderPass,
-};
-
 pub const VulkanRenderPass = struct {
     handle: c.VkRenderPass,
 
@@ -62,7 +58,7 @@ pub const VulkanRenderPass = struct {
             },
             else => {
                 std.debug.print("[Vulkan] Could not create Render Pass\n", .{});
-                return VulkanRenderPassError.CreateRenderPass;
+                return error.CreateRenderPass;
             },
         }
     }

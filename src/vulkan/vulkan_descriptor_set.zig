@@ -12,10 +12,6 @@ const VulkanImage = vulkan.VulkanImage;
 const VulkanBuffer = vulkan.VulkanBuffer;
 const vkCheck = base.vkCheck;
 
-const VulkanDescriptorSetError = error{
-    AllocateDescriptorSet,
-};
-
 pub const VulkanDescriptorSet = struct {
     handle: c.VkDescriptorSet,
 
@@ -35,7 +31,7 @@ pub const VulkanDescriptorSet = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not Allocate Descriptor Set\n", .{});
-                    return VulkanDescriptorSetError.AllocateDescriptorSet;
+                    return error.AllocateDescriptorSet;
                 },
             }
         }

@@ -7,10 +7,6 @@ const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
-const VulkanShaderModuleError = error{
-    CreateShaderModule,
-};
-
 pub const VulkanShaderModule = struct {
     handle: c.VkShaderModule,
 
@@ -29,7 +25,7 @@ pub const VulkanShaderModule = struct {
             },
             else => {
                 std.debug.print("[Vulkan] Could not create Shader Module\n", .{});
-                return VulkanShaderModuleError.CreateShaderModule;
+                return error.CreateShaderModule;
             },
         }
     }

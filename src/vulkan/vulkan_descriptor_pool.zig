@@ -7,10 +7,6 @@ const Allocator = std.mem.Allocator;
 const VulkanContext = vulkan.VulkanContext;
 const vkCheck = base.vkCheck;
 
-const VulkanDescriptorPoolError = error{
-    CreateDescriptorPool,
-};
-
 pub const VulkanDescriptorPool = struct {
     handle: c.VkDescriptorPool,
 
@@ -32,7 +28,7 @@ pub const VulkanDescriptorPool = struct {
                 c.VK_SUCCESS => {},
                 else => {
                     std.debug.print("[Vulkan] Could not Create Descriptor Pool\n", .{});
-                    return VulkanDescriptorPoolError.CreateDescriptorPool;
+                    return error.CreateDescriptorPool;
                 },
             }
         }

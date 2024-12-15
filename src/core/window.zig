@@ -8,11 +8,6 @@ const c = @cImport({
 
 const VulkanInstance = vulkan.VulkanInstance;
 
-const WindowError = error{
-    CreateWindow,
-    GLFWInit,
-};
-
 pub const Window = struct {
     handle: *c.GLFWwindow,
     width: u32,
@@ -22,7 +17,7 @@ pub const Window = struct {
     pub fn create(width: u32, height: u32, title: []const u8) !Window {
         const handle = c.glfwCreateWindow(@intCast(width), @intCast(height), title.ptr, null, null);
         if (handle == null) {
-            return WindowError.CreateWindow;
+            return error.CreateWindow;
         }
 
         return .{
@@ -49,7 +44,7 @@ pub const Window = struct {
 pub const GLFW = struct {
     pub fn init() !void {
         if (c.glfwInit() == 0) {
-            return WindowError.GLFWInit;
+            return error.GLFWInit;
         }
 
         c.glfwWindowHint(c.GLFW_CLIENT_API, c.GLFW_NO_API);

@@ -1,10 +1,6 @@
 const std = @import("std");
 const c = @cImport(@cInclude("spirv_cross_c.h"));
 
-const SPVCContextError = error{
-    CreateSPVCContext,
-};
-
 pub const SPVCContext = struct {
     handle: c.spvc_context,
 
@@ -14,7 +10,7 @@ pub const SPVCContext = struct {
             c.SPVC_SUCCESS => {},
             else => {
                 std.debug.print("[SPIRV-Cross] Could not create Context\n", .{});
-                return SPVCContextError.CreateSPVCContext;
+                return error.CreateSPVCContext;
             },
         }
 

@@ -4,10 +4,6 @@ const c = @cImport(@cInclude("spirv_cross_c.h"));
 
 const SPVCContext = spvc.SPVCContext;
 
-const SPVCParsedIRError = error{
-    CreateSPVCParsedIR,
-};
-
 pub const SPVCParsedIR = struct {
     handle: c.spvc_parsed_ir,
 
@@ -17,7 +13,7 @@ pub const SPVCParsedIR = struct {
             c.SPVC_SUCCESS => {},
             else => {
                 std.debug.print("[SPIRV-Cross] Could not create ParsedIR\n", .{});
-                return SPVCParsedIRError.CreateSPVCParsedIR;
+                return error.CreateSPVCParsedIR;
             },
         }
 
