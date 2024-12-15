@@ -62,9 +62,9 @@ fn AssetHandle(comptime T: type) type {
 }
 
 pub const AssetManager = struct {
-    vulkanContext: *const VulkanContext = undefined,
-    spvcContext: *const SPVCContext = undefined,
-    assets: StringHashMap(AssetEntry) = undefined,
+    vulkanContext: *const VulkanContext,
+    spvcContext: *const SPVCContext,
+    assets: StringHashMap(AssetEntry),
 
     allocator: Allocator,
 

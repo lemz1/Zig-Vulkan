@@ -53,15 +53,15 @@ pub const VulkanDescriptorSet = struct {
         imageInfo.imageView = image.view;
         imageInfo.imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        var descriptorWrites = [1]c.VkWriteDescriptorSet{undefined};
-        descriptorWrites[0].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = self.handle;
-        descriptorWrites[0].dstBinding = binding;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[0].pImageInfo = &imageInfo;
+        var descriptorWrite = c.VkWriteDescriptorSet{};
+        descriptorWrite.sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = self.handle;
+        descriptorWrite.dstBinding = binding;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.descriptorType = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrite.pImageInfo = &imageInfo;
 
-        c.vkUpdateDescriptorSets(context.device.handle, @intCast(descriptorWrites.len), &descriptorWrites, 0, null);
+        c.vkUpdateDescriptorSets(context.device.handle, 1, &descriptorWrite, 0, null);
     }
 
     pub fn updateBuffer(
@@ -76,14 +76,14 @@ pub const VulkanDescriptorSet = struct {
         bufferInfo.offset = 0;
         bufferInfo.range = size;
 
-        var descriptorWrites = [1]c.VkWriteDescriptorSet{undefined};
-        descriptorWrites[0].sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = self.handle;
-        descriptorWrites[0].dstBinding = binding;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
+        var descriptorWrite = c.VkWriteDescriptorSet{};
+        descriptorWrite.sType = c.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = self.handle;
+        descriptorWrite.dstBinding = binding;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.descriptorType = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.pBufferInfo = &bufferInfo;
 
-        c.vkUpdateDescriptorSets(context.device.handle, @intCast(descriptorWrites.len), &descriptorWrites, 0, null);
+        c.vkUpdateDescriptorSets(context.device.handle, 1, &descriptorWrite, 0, null);
     }
 };

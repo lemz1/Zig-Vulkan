@@ -12,10 +12,7 @@ const VulkanDevice = vulkan.VulkanDevice;
 const GLFW = core.GLFW;
 const vkCheck = base.vkCheck;
 
-const enableValidationLayers = switch (builtin.mode) {
-    .Debug, .ReleaseSafe => true,
-    else => false,
-};
+const enableValidationLayers = true;
 
 pub const VulkanContextCreateOptions = struct {
     framesInFlight: u32 = 2,
