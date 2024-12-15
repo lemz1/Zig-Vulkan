@@ -37,7 +37,6 @@ const Window = core.Window;
 const Event = core.Event;
 const ImageData = util.ImageData;
 const DescriptorSetGroup = util.DescriptorSetGroup;
-const Pipeline = util.Pipeline;
 const vkCheck = @import("../vulkan/base.zig").vkCheck;
 
 pub const OnCreateParams = struct {
@@ -200,10 +199,10 @@ pub const Application = struct {
     }
 
     pub fn run(self: *Application) void {
-        var assetManager = AssetManager.new(&self.vulkanContext, self.allocator);
+        var assetManager = AssetManager.new(&self.vulkanContext, &self.spvcContext, self.allocator);
         defer assetManager.destroy();
 
-        var image = assetManager.loadImage("assets/images/test.png", .RGBA8) catch return;
+        var image = assetManager.loadImage("assets/images/test.png") catch return;
         defer image.release();
 
         var sampler = VulkanSampler.new(&self.vulkanContext, .Linear, .Clamped) catch return;
@@ -277,26 +276,13 @@ pub const Application = struct {
             return;
         };
 
-        var vertShader = assetManager.loadShader("assets/shaders/texture.vert", .Vertex) catch return;
-        defer vertShader.release();
+        var pipeline = assetManager.loadGraphicsPipeline(&self.renderPass, "assets/shaders/texture") catch return;
+        defer pipeline.release();
 
-        var fragShader = assetManager.loadShader("assets/shaders/texture.frag", .Fragment) catch return;
-        defer fragShader.release();
-
-        var pipeline = Pipeline.graphicsPipeline(
-            &self.vulkanContext,
-            &self.spvcContext,
-            &self.renderPass,
-            vertShader.asset,
-            fragShader.asset,
-            self.allocator,
-        ) catch return;
-        defer pipeline.destroy(&self.vulkanContext);
-
-        pipeline.getDscriptorSet(0).updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
-        pipeline.getDscriptorSet(0).updateSampler(&self.vulkanContext, &sampler, image.asset, 1);
-        pipeline.getDscriptorSet(1).updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
-        pipeline.getDscriptorSet(1).updateSampler(&self.vulkanContext, &sampler, image.asset, 1);
+        pipeline.asset.getDscriptorSet(0).updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
+        pipeline.asset.getDscriptorSet(0).updateSampler(&self.vulkanContext, &sampler, &image.asset.image, 1);
+        pipeline.asset.getDscriptorSet(1).updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
+        pipeline.asset.getDscriptorSet(1).updateSampler(&self.vulkanContext, &sampler, &image.asset.image, 1);
 
         defer self.vulkanContext.device.wait();
 
@@ -371,13 +357,13 @@ pub const Application = struct {
                 beginInfo.pClearValues = &clearValues;
                 commandBuffer.beginRenderPass(&beginInfo);
 
-                commandBuffer.bindGraphicsPipeline(&pipeline.pipeline);
+                commandBuffer.bindGraphicsPipeline(&pipeline.asset.pipeline);
 
                 commandBuffer.bindVertexBuffer(&vertexBuffer, 0);
                 commandBuffer.bindIndexBuffer(&indexBuffer, 0);
                 commandBuffer.bindDescriptorSets(
-                    &pipeline.pipeline,
-                    &.{pipeline.getDscriptorSet(frameIndex).handle},
+                    &pipeline.asset.pipeline,
+                    &.{pipeline.asset.getDscriptorSet(frameIndex).handle},
                 );
                 commandBuffer.drawIndexed(indices.len);
 

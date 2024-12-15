@@ -45,11 +45,23 @@ pub const Pipeline = struct {
         vulkanContext: *const VulkanContext,
         spvcContext: *const SPVCContext,
         renderPass: *const VulkanRenderPass,
-        vertexShader: *const RuntimeShader,
-        fragmentShader: *const RuntimeShader,
+        vertexPath: []const u8,
+        fragmentPath: []const u8,
         allocator: Allocator,
     ) !Pipeline {
         defer spvcContext.release();
+
+        var vertexShader = try RuntimeShader.fromFile(vertexPath, .Vertex, allocator);
+        defer vertexShader.destroy();
+
+        var vertexModule = try VulkanShaderModule.new(vulkanContext, vertexShader.spirvSize, vertexShader.spirvCode);
+        defer vertexModule.destroy(vulkanContext);
+
+        var fragmentShader = try RuntimeShader.fromFile(fragmentPath, .Fragment, allocator);
+        defer fragmentShader.destroy();
+
+        var fragmentModule = try VulkanShaderModule.new(vulkanContext, fragmentShader.spirvSize, fragmentShader.spirvCode);
+        defer fragmentModule.destroy(vulkanContext);
 
         const vertexParsedIR = try SPVCParsedIR.new(spvcContext, vertexShader.spirvCode, vertexShader.spirvWords);
         const vertexCompiler = try SPVCCompiler.new(spvcContext, &vertexParsedIR);
@@ -99,12 +111,6 @@ pub const Pipeline = struct {
 
         const inputBindings = try createInputBindings(&inputAttributeInfos, allocator);
         defer allocator.free(inputBindings);
-
-        var vertexModule = try VulkanShaderModule.new(vulkanContext, vertexShader.spirvSize, vertexShader.spirvCode);
-        defer vertexModule.destroy(vulkanContext);
-
-        var fragmentModule = try VulkanShaderModule.new(vulkanContext, fragmentShader.spirvSize, fragmentShader.spirvCode);
-        defer fragmentModule.destroy(vulkanContext);
 
         const pipeline = try VulkanPipeline.new(
             vulkanContext,

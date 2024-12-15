@@ -1,24 +1,27 @@
 const std = @import("std");
 const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
+const graphics = @import("../graphics.zig");
 const glslang = @import("../glslang.zig");
+const spvc = @import("../spvc.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
 const StringHashMap = std.hash_map.StringHashMap;
-const ImageData = util.ImageData;
-const ImageFormat = util.ImageFormat;
+const Image = graphics.Image;
+const Pipeline = graphics.Pipeline;
 const VulkanContext = vulkan.VulkanContext;
-const VulkanImage = vulkan.VulkanImage;
+const VulkanRenderPass = vulkan.VulkanRenderPass;
 const GLSLangShaderStage = glslang.GLSLangShaderStage;
 const RuntimeShader = glslang.RuntimeShader;
+const SPVCContext = spvc.SPVCContext;
 
 const AssetEntry = struct {
     manager: *const AssetManager,
     refCount: usize = 1,
     asset: union(enum) {
-        image: VulkanImage,
-        shader: RuntimeShader,
+        image: Image,
+        pipeline: Pipeline,
     },
 
     pub fn release(self: *AssetEntry) void {
@@ -32,8 +35,8 @@ const AssetEntry = struct {
             .image => |*image| {
                 image.destroy(self.manager.vulkanContext);
             },
-            .shader => |*shader| {
-                shader.destroy();
+            .pipeline => |*pipeline| {
+                pipeline.destroy(self.manager.vulkanContext);
             },
         }
     }
@@ -60,13 +63,15 @@ fn AssetHandle(comptime T: type) type {
 
 pub const AssetManager = struct {
     vulkanContext: *const VulkanContext = undefined,
+    spvcContext: *const SPVCContext = undefined,
     assets: StringHashMap(AssetEntry) = undefined,
 
     allocator: Allocator,
 
-    pub fn new(vulkanContext: *const VulkanContext, allocator: Allocator) AssetManager {
+    pub fn new(vulkanContext: *const VulkanContext, spvcContext: *const SPVCContext, allocator: Allocator) AssetManager {
         return .{
             .vulkanContext = vulkanContext,
+            .spvcContext = spvcContext,
             .assets = StringHashMap(AssetEntry).init(allocator),
 
             .allocator = allocator,
@@ -105,51 +110,48 @@ pub const AssetManager = struct {
         }
     }
 
-    pub fn loadImage(self: *AssetManager, path: []const u8, format: ImageFormat) !AssetHandle(VulkanImage) {
+    pub fn loadImage(self: *AssetManager, path: []const u8) !AssetHandle(Image) {
         const entry = self.assets.getPtr(path) orelse blk: {
-            var imageData = try ImageData.load(path, format);
-            defer imageData.destroy();
-
-            const image = try VulkanImage.new(
-                self.vulkanContext,
-                &imageData,
-                c.VK_IMAGE_USAGE_SAMPLED_BIT | c.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-            );
-
-            try image.uploadData(
-                self.vulkanContext,
-                &imageData,
-                c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                c.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            );
-
             try self.assets.put(
                 path,
                 .{
                     .manager = self,
                     .asset = .{
-                        .image = image,
+                        .image = try Image.new(self.vulkanContext, path, .RGBA8),
                     },
                 },
             );
             break :blk self.assets.getPtr(path);
         };
-        return AssetHandle(VulkanImage).new(entry.?, &entry.?.asset.image);
+        return AssetHandle(Image).new(entry.?, &entry.?.asset.image);
     }
 
-    pub fn loadShader(self: *AssetManager, path: []const u8, stage: GLSLangShaderStage) !AssetHandle(RuntimeShader) {
+    pub fn loadGraphicsPipeline(self: *AssetManager, renderPass: *const VulkanRenderPass, path: []const u8) !AssetHandle(Pipeline) {
         const entry = self.assets.getPtr(path) orelse blk: {
+            const vertexShader = try std.fmt.allocPrint(self.allocator, "{s}.vert", .{path});
+            defer self.allocator.free(vertexShader);
+
+            const fragmentShader = try std.fmt.allocPrint(self.allocator, "{s}.frag", .{path});
+            defer self.allocator.free(fragmentShader);
+
             try self.assets.put(
                 path,
                 .{
                     .manager = self,
                     .asset = .{
-                        .shader = try RuntimeShader.fromFile(path, stage, self.allocator),
+                        .pipeline = try Pipeline.graphicsPipeline(
+                            self.vulkanContext,
+                            self.spvcContext,
+                            renderPass,
+                            vertexShader,
+                            fragmentShader,
+                            self.allocator,
+                        ),
                     },
                 },
             );
             break :blk self.assets.getPtr(path);
         };
-        return AssetHandle(RuntimeShader).new(entry.?, &entry.?.asset.shader);
+        return AssetHandle(Pipeline).new(entry.?, &entry.?.asset.pipeline);
     }
 };
