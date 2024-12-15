@@ -298,8 +298,6 @@ pub const Application = struct {
             const deltaTime = newTime - time;
             time = newTime;
 
-            self.onUpdate.dispatch(.{ .app = self, .deltaTime = deltaTime });
-
             const commandPool = self.commandPools[frameIndex];
             const commandBuffer = self.commandBuffers[frameIndex];
             const fence = self.fences[frameIndex];
@@ -324,6 +322,8 @@ pub const Application = struct {
                     },
                 }
             }
+
+            self.onUpdate.dispatch(.{ .app = self, .deltaTime = deltaTime });
 
             fence.reset(&self.vulkanContext);
 
