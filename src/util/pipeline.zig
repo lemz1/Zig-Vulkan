@@ -129,6 +129,10 @@ pub const Pipeline = struct {
         self.descriptorPool.destroy(vulkanContext);
     }
 
+    pub fn getDscriptorSet(self: *const Pipeline, frameIndex: u32) *const VulkanDescriptorSet {
+        return &self.descriptorSet.sets[frameIndex];
+    }
+
     fn createInputAttributes(
         spvcCompiler: *const SPVCCompiler,
         spvcResources: *const SPVCResources,

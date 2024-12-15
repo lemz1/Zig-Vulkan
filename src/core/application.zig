@@ -293,10 +293,10 @@ pub const Application = struct {
         ) catch return;
         defer pipeline.destroy(&self.vulkanContext);
 
-        pipeline.descriptorSet.sets[0].updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
-        pipeline.descriptorSet.sets[0].updateSampler(&self.vulkanContext, &sampler, image.asset, 1);
-        pipeline.descriptorSet.sets[1].updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
-        pipeline.descriptorSet.sets[1].updateSampler(&self.vulkanContext, &sampler, image.asset, 1);
+        pipeline.getDscriptorSet(0).updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
+        pipeline.getDscriptorSet(0).updateSampler(&self.vulkanContext, &sampler, image.asset, 1);
+        pipeline.getDscriptorSet(1).updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
+        pipeline.getDscriptorSet(1).updateSampler(&self.vulkanContext, &sampler, image.asset, 1);
 
         defer self.vulkanContext.device.wait();
 
@@ -377,7 +377,7 @@ pub const Application = struct {
                 commandBuffer.bindIndexBuffer(&indexBuffer, 0);
                 commandBuffer.bindDescriptorSets(
                     &pipeline.pipeline,
-                    &.{pipeline.descriptorSet.sets[frameIndex].handle},
+                    &.{pipeline.getDscriptorSet(frameIndex).handle},
                 );
                 commandBuffer.drawIndexed(indices.len);
 
