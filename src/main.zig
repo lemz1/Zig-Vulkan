@@ -1,6 +1,6 @@
 const std = @import("std");
-
 const core = @import("core.zig");
+
 const Application = core.Application;
 
 pub fn main() !void {
