@@ -5,7 +5,7 @@ pub fn spvcCheck(res: c.spvc_result) void {
     switch (res) {
         c.SPVC_SUCCESS => {},
         else => {
-            std.debug.print("[SPIRV-Cross] Error: {}", .{res});
+            std.debug.print("[SPIRV-Cross] Error: {}\n", .{res});
         },
     }
 }

@@ -63,7 +63,11 @@ pub const VulkanCommandBuffer = struct {
         c.vkCmdBindPipeline(self.handle, c.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
     }
 
-    pub fn bindDescriptorSets(self: *const VulkanCommandBuffer, pipeline: *const VulkanPipeline, descriptorSets: []const c.VkDescriptorSet) void {
+    pub fn bindDescriptorSets(
+        self: *const VulkanCommandBuffer,
+        pipeline: *const VulkanPipeline,
+        descriptorSets: []const c.VkDescriptorSet,
+    ) void {
         c.vkCmdBindDescriptorSets(
             self.handle,
             c.VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -112,11 +116,21 @@ pub const VulkanCommandBuffer = struct {
         c.vkCmdSetScissor(self.handle, 0, 1, &scissor);
     }
 
-    pub fn copyBuffer(self: *const VulkanCommandBuffer, srcBuffer: *const VulkanBuffer, dstBuffer: *const VulkanBuffer, region: c.VkBufferCopy) void {
+    pub fn copyBuffer(
+        self: *const VulkanCommandBuffer,
+        srcBuffer: *const VulkanBuffer,
+        dstBuffer: *const VulkanBuffer,
+        region: c.VkBufferCopy,
+    ) void {
         c.vkCmdCopyBuffer(self.handle, srcBuffer.handle, dstBuffer.handle, 1, &region);
     }
 
-    pub fn copyBufferToImage(self: *const VulkanCommandBuffer, srcBuffer: *const VulkanBuffer, dstImage: *const VulkanImage, region: c.VkBufferImageCopy) void {
+    pub fn copyBufferToImage(
+        self: *const VulkanCommandBuffer,
+        srcBuffer: *const VulkanBuffer,
+        dstImage: *const VulkanImage,
+        region: c.VkBufferImageCopy,
+    ) void {
         c.vkCmdCopyBufferToImage(self.handle, srcBuffer.handle, dstImage.handle, c.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     }
 };

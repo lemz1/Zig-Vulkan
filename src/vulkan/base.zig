@@ -17,7 +17,7 @@ pub fn vkCheck(res: c.VkResult) void {
     switch (res) {
         c.VK_SUCCESS => {},
         else => {
-            std.debug.print("[Vulkan] Error: {}", .{res});
+            std.debug.print("[Vulkan] Error: {}\n", .{res});
         },
     }
 }
