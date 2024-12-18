@@ -14,8 +14,8 @@ pub const VulkanBuffer = struct {
     handle: c.VkBuffer,
     memory: c.VkDeviceMemory,
 
-    uploadCmdPool: VulkanCommandPool,
-    uploadCmdBuffer: VulkanCommandBuffer,
+    uploadCmdPool: ?VulkanCommandPool,
+    uploadCmdBuffer: ?VulkanCommandBuffer,
 
     pub fn new(context: *const VulkanContext, size: u64, usage: c.VkBufferUsageFlags, memoryProperties: c.VkMemoryPropertyFlags) !VulkanBuffer {
         var createInfo = c.VkBufferCreateInfo{};
@@ -53,8 +53,15 @@ pub const VulkanBuffer = struct {
 
         vkCheck(c.vkBindBufferMemory(context.device.handle, buffer, memory, 0));
 
-        const uploadCmdPool = try VulkanCommandPool.new(context, context.device.graphicsQueue.familyIndex);
-        const uploadCmdBuffer = try VulkanCommandBuffer.new(context, &uploadCmdPool);
+        const uploadCmdPool: ?VulkanCommandPool = if (!context.device.hasResizableBAR)
+            try VulkanCommandPool.new(context, context.device.graphicsQueue.familyIndex)
+        else
+            null;
+
+        const uploadCmdBuffer: ?VulkanCommandBuffer = if (!context.device.hasResizableBAR)
+            try VulkanCommandBuffer.new(context, &uploadCmdPool.?)
+        else
+            null;
 
         return .{
             .handle = buffer,
@@ -66,7 +73,9 @@ pub const VulkanBuffer = struct {
     }
 
     pub fn destroy(self: *VulkanBuffer, context: *const VulkanContext) void {
-        self.uploadCmdPool.destroy(context);
+        if (self.uploadCmdPool) |*pool| {
+            pool.destroy(context);
+        }
         c.vkFreeMemory(context.device.handle, self.memory, null);
         c.vkDestroyBuffer(context.device.handle, self.handle, null);
     }
@@ -88,6 +97,9 @@ pub const VulkanBuffer = struct {
             _ = memcpy(mapped, data.ptr, size);
             c.vkUnmapMemory(context.device.handle, self.memory);
         } else {
+            const pool = &self.uploadCmdPool.?;
+            const cmd = &self.uploadCmdBuffer.?;
+
             var stagingBuffer = try VulkanBuffer.new(
                 context,
                 size,
@@ -101,20 +113,20 @@ pub const VulkanBuffer = struct {
             _ = memcpy(mapped, data.ptr, size);
             c.vkUnmapMemory(context.device.handle, stagingBuffer.memory);
 
-            self.uploadCmdPool.reset(context);
+            pool.reset(context);
 
-            self.uploadCmdBuffer.begin();
-            self.uploadCmdBuffer.copyBuffer(&stagingBuffer, self, .{
+            cmd.begin();
+            cmd.copyBuffer(&stagingBuffer, self, .{
                 .srcOffset = 0,
                 .dstOffset = 0,
                 .size = size,
             });
-            self.uploadCmdBuffer.end();
+            cmd.end();
 
             var submitInfo = c.VkSubmitInfo{};
             submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
             submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &self.uploadCmdBuffer.handle;
+            submitInfo.pCommandBuffers = &cmd.handle;
             context.device.graphicsQueue.submit(&submitInfo, null);
             context.device.graphicsQueue.wait();
         }
