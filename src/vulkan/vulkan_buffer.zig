@@ -18,10 +18,15 @@ pub const VulkanBuffer = struct {
     uploadCmdBuffer: ?VulkanCommandBuffer,
 
     pub fn new(context: *const VulkanContext, size: u64, usage: c.VkBufferUsageFlags, memoryProperties: c.VkMemoryPropertyFlags) !VulkanBuffer {
+        var resizableUsage = usage;
+        if (!context.device.hasResizableBAR) {
+            resizableUsage |= c.VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        }
+
         var createInfo = c.VkBufferCreateInfo{};
         createInfo.sType = c.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         createInfo.size = size;
-        createInfo.usage = usage;
+        createInfo.usage = resizableUsage;
 
         var buffer: c.VkBuffer = undefined;
         switch (c.vkCreateBuffer(context.device.handle, &createInfo, null, &buffer)) {

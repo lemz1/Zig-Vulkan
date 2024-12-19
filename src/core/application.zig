@@ -214,7 +214,7 @@ pub const Application = struct {
             modelUniformBuffers[i] = VulkanBuffer.new(
                 &self.vulkanContext,
                 @sizeOf(f32) * 2,
-                c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
             ) catch return;
             const data: []const f32 = &.{ 0.1, 0.2 };
@@ -251,7 +251,7 @@ pub const Application = struct {
         var vertexBuffer = VulkanBuffer.new(
             &self.vulkanContext,
             @sizeOf(f32) * vertices.len,
-            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
             c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         ) catch return;
         defer vertexBuffer.destroy(&self.vulkanContext);
@@ -266,7 +266,7 @@ pub const Application = struct {
         var indexBuffer = VulkanBuffer.new(
             &self.vulkanContext,
             @sizeOf(f32) * vertices.len,
-            c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT | c.VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
             c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         ) catch return;
         defer indexBuffer.destroy(&self.vulkanContext);
