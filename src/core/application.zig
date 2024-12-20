@@ -32,6 +32,7 @@ const VulkanDescriptorPool = vulkan.VulkanDescriptorPool;
 const VulkanDescriptorSet = vulkan.VulkanDescriptorSet;
 const VulkanContextCreateOptions = vulkan.VulkanContextCreateOptions;
 const AssetManager = util.AssetManager;
+const GPUAllocator = util.GPUAllocator;
 const GLFW = core.GLFW;
 const Window = core.Window;
 const Event = core.Event;
@@ -199,6 +200,9 @@ pub const Application = struct {
     }
 
     pub fn run(self: *Application) void {
+        var gpuAllocator = GPUAllocator.new(&self.vulkanContext, self.allocator) catch return;
+        defer gpuAllocator.destroy();
+
         var assetManager = AssetManager.new(&self.vulkanContext, &self.spvcContext, self.allocator);
         defer assetManager.destroy();
 

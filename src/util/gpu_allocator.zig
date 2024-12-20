@@ -37,10 +37,10 @@ const AllocatedMemory = struct {
         std.sort.insertion(MemoryRange, self.ranges.items, .{}, sort);
     }
 
-    pub fn remove(self: *AllocatedMemory, range: *const MemoryRange) void {
+    pub fn remove(self: *AllocatedMemory, range: MemoryRange) void {
         for (0..self.ranges.items.len) |i| {
-            if (&self.ranges.items[i] == range) {
-                self.ranges.swapRemove(i);
+            if (self.ranges.items[i].offset == range.offset) {
+                _ = self.ranges.swapRemove(i);
                 break;
             }
         }
@@ -49,14 +49,14 @@ const AllocatedMemory = struct {
         std.sort.insertion(MemoryRange, self.ranges.items, .{}, sort);
     }
 
-    fn sort(_: anytype, a: MemoryRange, b: MemoryRange) bool {
+    fn sort(_: @TypeOf(.{}), a: MemoryRange, b: MemoryRange) bool {
         return a.offset < b.offset;
     }
 };
 
 const MemoryBlock = struct {
     memory: *const VulkanMemory,
-    range: *const MemoryRange,
+    range: MemoryRange,
 };
 
 pub const GPUAllocator = struct {
@@ -81,27 +81,71 @@ pub const GPUAllocator = struct {
         self.memories.deinit();
     }
 
-    pub fn get(self: *GPUAllocator, size: c.VkDeviceSize, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !MemoryBlock {
+    // probably need to do some alignment stuff here
+    pub fn alloc(self: *GPUAllocator, size: c.VkDeviceSize, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !MemoryBlock {
         for (self.memories.items) |*memory| {
-            if (memory.size - memory.offset >= size) {
+            if (memory.memory.typeFilter & typeFilter == 0 or memory.memory.memoryProperties & memoryProperties == 0) {
+                continue;
+            }
+
+            if (memory.ranges.items.len == 0) {
+                const blockSize = memory.memory.size;
+                if (blockSize >= size) {
+                    const range = .{ .offset = 0, .size = size };
+                    try memory.add(range);
+
+                    return .{
+                        .memory = &memory.memory,
+                        .range = range,
+                    };
+                } else {
+                    return error.OutOfMemory;
+                }
+            }
+
+            for (0..memory.ranges.items.len - 1) |i| {
+                const offset = memory.ranges.items[i].offset + memory.ranges.items[i].size;
+                const blockSize = memory.ranges.items[i + 1].offset - offset;
+
+                if (blockSize >= size) {
+                    const range = .{ .offset = offset, .size = size };
+                    try memory.add(range);
+
+                    return .{
+                        .memory = &memory.memory,
+                        .range = range,
+                    };
+                }
+            }
+
+            const offset = memory.ranges.items[memory.ranges.items.len - 1].offset + memory.ranges.items[memory.ranges.items.len - 1].size;
+            const blockSize = memory.memory.size - offset;
+            if (blockSize >= size) {
+                const range = .{ .offset = offset, .size = size };
+                try memory.add(range);
+
                 return .{
-                    .memory = memory,
-                    .offset = memory.offset,
-                    .size = size,
+                    .memory = &memory.memory,
+                    .range = range,
                 };
             }
         }
 
-        self.allocate(typeFilter, memoryProperties);
-
-        return self.get(size, typeFilter, memoryProperties);
-    }
-
-    fn allocate(self: *GPUAllocator, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !void {
         const memory = try VulkanMemory.new(self.context, memoryAllocationSize, typeFilter, memoryProperties);
-        self.memories.append(AllocatedMemory.new(
+        try self.memories.append(AllocatedMemory.new(
             memory,
             self.allocator,
         ));
+
+        return self.alloc(size, typeFilter, memoryProperties);
+    }
+
+    pub fn free(self: *GPUAllocator, block: *const MemoryBlock) void {
+        for (self.memories.items) |*memory| {
+            if (&memory.memory == block.memory) {
+                memory.remove(block.range);
+                return;
+            }
+        }
     }
 };
