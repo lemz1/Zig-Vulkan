@@ -36,6 +36,9 @@ const AssetManager = util.AssetManager;
 const ImageData = util.ImageData;
 const DescriptorSetGroup = util.DescriptorSetGroup;
 const GPUAllocator = gpu.GPUAllocator;
+const VertexBuffer = gpu.VertexBuffer;
+const IndexBuffer = gpu.IndexBuffer;
+const UniformBuffer = gpu.UniformBuffer;
 const GLFW = core.GLFW;
 const Window = core.Window;
 const Event = core.Event;
@@ -213,21 +216,21 @@ pub const Application = struct {
         var sampler = VulkanSampler.new(&self.vulkanContext, .Linear, .Clamped) catch return;
         defer sampler.destroy(&self.vulkanContext);
 
-        const modelUniformBuffers = self.allocator.alloc(VulkanBuffer, self.vulkanContext.framesInFlight) catch return;
+        var uploadPool = VulkanCommandPool.new(&self.vulkanContext, self.vulkanContext.device.graphicsQueue.familyIndex) catch return;
+        defer uploadPool.destroy(&self.vulkanContext);
+
+        const uploadCmd = VulkanCommandBuffer.new(&self.vulkanContext, &uploadPool) catch return;
+
+        const modelUniformBuffers = self.allocator.alloc(UniformBuffer, self.vulkanContext.framesInFlight) catch return;
         defer self.allocator.free(modelUniformBuffers);
         for (0..modelUniformBuffers.len) |i| {
-            modelUniformBuffers[i] = VulkanBuffer.new(
-                &self.vulkanContext,
-                @sizeOf(f32) * 2,
-                c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-            ) catch return;
+            modelUniformBuffers[i] = UniformBuffer.new(&gpuAllocator, @sizeOf(f32) * 2) catch return;
             const data: []const f32 = &.{ 0.1, 0.2 };
-            modelUniformBuffers[i].uploadData(&self.vulkanContext, data) catch return;
+            modelUniformBuffers[i].uploadData(&self.vulkanContext, data);
         }
         defer {
             for (modelUniformBuffers) |*buffer| {
-                buffer.destroy(&self.vulkanContext);
+                buffer.destroy(&gpuAllocator);
             }
         }
 
@@ -253,40 +256,34 @@ pub const Application = struct {
             1.0,
         };
 
-        var vertexBuffer = VulkanBuffer.new(
-            &self.vulkanContext,
-            @sizeOf(f32) * vertices.len,
-            c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        ) catch return;
-        defer vertexBuffer.destroy(&self.vulkanContext);
-
-        vertexBuffer.uploadData(&self.vulkanContext, vertices) catch {
-            std.debug.print("Failed to upload data to Vertex Buffer\n", .{});
-            return;
-        };
+        var vertexBuffer = VertexBuffer.new(&gpuAllocator, @sizeOf(f32) * vertices.len) catch return;
+        defer vertexBuffer.destroy(&gpuAllocator);
 
         const indices: []const u32 = &.{ 0, 1, 2, 1, 3, 2 };
 
-        var indexBuffer = VulkanBuffer.new(
-            &self.vulkanContext,
-            @sizeOf(f32) * vertices.len,
-            c.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        ) catch return;
-        defer indexBuffer.destroy(&self.vulkanContext);
+        var indexBuffer = IndexBuffer.new(&gpuAllocator, @sizeOf(f32) * vertices.len) catch return;
+        defer indexBuffer.destroy(&gpuAllocator);
 
-        indexBuffer.uploadData(&self.vulkanContext, indices) catch {
-            std.debug.print("Failed to upload data to Index Buffer\n", .{});
-            return;
-        };
+        {
+            uploadCmd.begin();
+            vertexBuffer.uploadData(&self.vulkanContext, &uploadCmd, vertices);
+            indexBuffer.uploadData(&self.vulkanContext, &uploadCmd, indices);
+            uploadCmd.end();
+
+            var submitInfo = c.VkSubmitInfo{};
+            submitInfo.sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &uploadCmd.handle;
+            self.vulkanContext.device.graphicsQueue.submit(&submitInfo, null);
+            self.vulkanContext.device.graphicsQueue.wait();
+        }
 
         var pipeline = assetManager.loadGraphicsPipeline(&self.renderPass, "assets/shaders/texture") catch return;
         defer pipeline.release();
 
-        pipeline.asset.getDscriptorSet(0).updateBuffer(&self.vulkanContext, &modelUniformBuffers[0], @sizeOf(f32) * 2, 0);
+        pipeline.asset.getDscriptorSet(0).updateBuffer(&self.vulkanContext, &modelUniformBuffers[0].buffer, @sizeOf(f32) * 2, 0);
         pipeline.asset.getDscriptorSet(0).updateSampler(&self.vulkanContext, &sampler, &image.asset.image, 1);
-        pipeline.asset.getDscriptorSet(1).updateBuffer(&self.vulkanContext, &modelUniformBuffers[1], @sizeOf(f32) * 2, 0);
+        pipeline.asset.getDscriptorSet(1).updateBuffer(&self.vulkanContext, &modelUniformBuffers[1].buffer, @sizeOf(f32) * 2, 0);
         pipeline.asset.getDscriptorSet(1).updateSampler(&self.vulkanContext, &sampler, &image.asset.image, 1);
 
         defer self.vulkanContext.device.wait();
@@ -364,8 +361,8 @@ pub const Application = struct {
 
                 commandBuffer.bindGraphicsPipeline(&pipeline.asset.pipeline);
 
-                commandBuffer.bindVertexBuffer(&vertexBuffer, 0);
-                commandBuffer.bindIndexBuffer(&indexBuffer, 0);
+                commandBuffer.bindVertexBuffer(&vertexBuffer.buffer, 0);
+                commandBuffer.bindIndexBuffer(&indexBuffer.buffer, 0);
                 commandBuffer.bindDescriptorSets(
                     &pipeline.asset.pipeline,
                     &.{pipeline.asset.getDscriptorSet(frameIndex).handle},

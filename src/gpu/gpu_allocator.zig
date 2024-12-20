@@ -6,6 +6,7 @@ const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const VulkanMemory = vulkan.VulkanMemory;
 const VulkanContext = vulkan.VulkanContext;
+const alignUpPow2 = @import("../util/alignment.zig").alignUpPow2;
 
 const minAllocSize = 16 * 1024 * 1024;
 
@@ -88,7 +89,7 @@ pub const GPUAllocator = struct {
         memoryRequirements: c.VkMemoryRequirements,
     ) !MemoryBlock {
         for (self.memories.items) |*memory| {
-            if (memory.memory.memoryRequirements & memoryRequirements.memoryTypeBits == 0 or memory.memory.memoryProperties & memoryProperties == 0 or memory.memory.size < size) {
+            if (memory.memory.typeFilter & memoryRequirements.memoryTypeBits == 0 or memory.memory.memoryProperties & memoryProperties == 0 or memory.memory.size < size) {
                 continue;
             }
 
@@ -106,7 +107,10 @@ pub const GPUAllocator = struct {
             }
 
             for (0..memory.ranges.items.len - 1) |i| {
-                const offset = memory.ranges.items[i].offset + memory.ranges.items[i].size;
+                const offset = alignUpPow2(
+                    memory.ranges.items[i].offset + memory.ranges.items[i].size,
+                    memoryRequirements.alignment,
+                );
                 const blockSize = memory.ranges.items[i + 1].offset - offset;
 
                 if (blockSize >= size) {
@@ -120,7 +124,10 @@ pub const GPUAllocator = struct {
                 }
             }
 
-            const offset = memory.ranges.items[memory.ranges.items.len - 1].offset + memory.ranges.items[memory.ranges.items.len - 1].size;
+            const offset = alignUpPow2(
+                memory.ranges.items[memory.ranges.items.len - 1].offset + memory.ranges.items[memory.ranges.items.len - 1].size,
+                memoryRequirements.alignment,
+            );
             const blockSize = memory.memory.size - offset;
             if (blockSize >= size) {
                 const range = .{ .offset = offset, .size = size };

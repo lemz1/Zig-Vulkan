@@ -9,6 +9,7 @@ const VulkanContext = vulkan.VulkanContext;
 const VulkanCommandPool = vulkan.VulkanCommandPool;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
 const VulkanBuffer = vulkan.VulkanBuffer;
+const VulkanMemory = vulkan.VulkanMemory;
 const ImageData = util.ImageData;
 const vkCheck = base.vkCheck;
 const memcpy = @cImport(@cInclude("memory.h")).memcpy;
@@ -132,10 +133,20 @@ pub const VulkanImage = struct {
         );
         defer stagingBuffer.destroy(context);
 
+        var memory = try VulkanMemory.new(
+            context,
+            size,
+            stagingBuffer.requirements.memoryTypeBits,
+            stagingBuffer.properties,
+        );
+        defer memory.destroy(context);
+
+        memory.bindBuffer(context, &stagingBuffer, 0);
+
         var mapped: ?*anyopaque = undefined;
-        vkCheck(c.vkMapMemory(context.device.handle, stagingBuffer.memory, 0, size, 0, &mapped));
+        vkCheck(c.vkMapMemory(context.device.handle, memory.handle, 0, size, 0, &mapped));
         _ = memcpy(mapped, pixels, size);
-        c.vkUnmapMemory(context.device.handle, stagingBuffer.memory);
+        c.vkUnmapMemory(context.device.handle, memory.handle);
 
         self.uploadCmdPool.reset(context);
 

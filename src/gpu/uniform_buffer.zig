@@ -1,10 +1,12 @@
 const gpu = @import("../gpu.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
+const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
 const GPUAllocator = gpu.GPUAllocator;
 const MemoryBlock = gpu.MemoryBlock;
-const VulkanBuffer = @import("../vulkan/vulkan_buffer_new.zig").VulkanBuffer;
+const VulkanContext = vulkan.VulkanContext;
+const VulkanBuffer = vulkan.VulkanBuffer;
 
 pub const UniformBuffer = struct {
     buffer: VulkanBuffer,
@@ -19,6 +21,8 @@ pub const UniformBuffer = struct {
         );
 
         const memory = try gpuAllocator.alloc(size, buffer.properties, buffer.requirements);
+        memory.memory.bindBuffer(gpuAllocator.context, &buffer, memory.range.offset);
+
         return .{
             .buffer = buffer,
             .memory = memory,
@@ -28,5 +32,26 @@ pub const UniformBuffer = struct {
     pub fn destroy(self: *UniformBuffer, gpuAllocator: *GPUAllocator) void {
         gpuAllocator.free(&self.memory);
         self.buffer.destroy(gpuAllocator.context);
+    }
+
+    pub fn uploadData(
+        self: *const UniformBuffer,
+        context: *const VulkanContext,
+        data: anytype,
+    ) void {
+        const typeInfo = @typeInfo(@TypeOf(data));
+
+        comptime {
+            if (typeInfo != .pointer or typeInfo.pointer.size != .Slice) {
+                @compileError("Data is not a Slice\n");
+            }
+        }
+
+        const size: c.VkDeviceSize = data.len * @sizeOf(typeInfo.pointer.child);
+
+        var mapped: ?*anyopaque = undefined;
+        _ = c.vkMapMemory(context.device.handle, self.memory.memory.handle, self.memory.range.offset, size, 0, &mapped);
+        _ = memcpy(mapped, data.ptr, size);
+        c.vkUnmapMemory(context.device.handle, self.memory.memory.handle);
     }
 };

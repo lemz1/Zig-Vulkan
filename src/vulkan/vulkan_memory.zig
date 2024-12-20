@@ -4,6 +4,9 @@ const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const VulkanContext = vulkan.VulkanContext;
+const VulkanBuffer = vulkan.VulkanBuffer;
+const VulkanImage = vulkan.VulkanImage;
+const vkCheck = base.vkCheck;
 
 pub const VulkanMemory = struct {
     handle: c.VkDeviceMemory,
@@ -38,5 +41,13 @@ pub const VulkanMemory = struct {
 
     pub fn destroy(self: *VulkanMemory, context: *const VulkanContext) void {
         c.vkFreeMemory(context.device.handle, self.handle, null);
+    }
+
+    pub fn bindBuffer(self: *const VulkanMemory, context: *const VulkanContext, buffer: *const VulkanBuffer, offset: c.VkDeviceSize) void {
+        vkCheck(c.vkBindBufferMemory(context.device.handle, buffer.handle, self.handle, offset));
+    }
+
+    pub fn bindImage(self: *const VulkanMemory, context: *const VulkanContext, image: *const VulkanImage, offset: c.VkDeviceSize) void {
+        vkCheck(c.vkBindImageMemory(context.device.handle, image.handle, self.handle, offset));
     }
 };
