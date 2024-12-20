@@ -54,7 +54,7 @@ const AllocatedMemory = struct {
     }
 };
 
-const MemoryBlock = struct {
+pub const MemoryBlock = struct {
     memory: *const VulkanMemory,
     range: MemoryRange,
 };
@@ -81,10 +81,14 @@ pub const GPUAllocator = struct {
         self.memories.deinit();
     }
 
-    // size needs to account for alignment
-    pub fn alloc(self: *GPUAllocator, size: c.VkDeviceSize, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !MemoryBlock {
+    pub fn alloc(
+        self: *GPUAllocator,
+        size: c.VkDeviceSize,
+        memoryProperties: c.VkMemoryPropertyFlags,
+        memoryRequirements: c.VkMemoryRequirements,
+    ) !MemoryBlock {
         for (self.memories.items) |*memory| {
-            if (memory.memory.typeFilter & typeFilter == 0 or memory.memory.memoryProperties & memoryProperties == 0 or memory.memory.size < size) {
+            if (memory.memory.memoryRequirements & memoryRequirements.memoryTypeBits == 0 or memory.memory.memoryProperties & memoryProperties == 0 or memory.memory.size < size) {
                 continue;
             }
 
@@ -132,7 +136,7 @@ pub const GPUAllocator = struct {
         const memory = try VulkanMemory.new(
             self.context,
             if (size < minAllocSize) minAllocSize else size,
-            typeFilter,
+            memoryRequirements.memoryTypeBits,
             memoryProperties,
         );
         try self.memories.append(AllocatedMemory.new(
@@ -140,7 +144,7 @@ pub const GPUAllocator = struct {
             self.allocator,
         ));
 
-        return self.alloc(size, typeFilter, memoryProperties);
+        return self.alloc(size, memoryProperties, memoryRequirements);
     }
 
     pub fn free(self: *GPUAllocator, block: *const MemoryBlock) void {
