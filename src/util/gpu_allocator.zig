@@ -7,7 +7,7 @@ const Allocator = std.mem.Allocator;
 const VulkanMemory = vulkan.VulkanMemory;
 const VulkanContext = vulkan.VulkanContext;
 
-const memoryAllocationSize = 16 * 1024 * 1024;
+const minAllocSize = 16 * 1024 * 1024;
 
 const MemoryRange = struct {
     offset: c.VkDeviceSize,
@@ -81,10 +81,10 @@ pub const GPUAllocator = struct {
         self.memories.deinit();
     }
 
-    // probably need to do some alignment stuff here
+    // size needs to account for alignment
     pub fn alloc(self: *GPUAllocator, size: c.VkDeviceSize, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !MemoryBlock {
         for (self.memories.items) |*memory| {
-            if (memory.memory.typeFilter & typeFilter == 0 or memory.memory.memoryProperties & memoryProperties == 0) {
+            if (memory.memory.typeFilter & typeFilter == 0 or memory.memory.memoryProperties & memoryProperties == 0 or memory.memory.size < size) {
                 continue;
             }
 
@@ -98,8 +98,6 @@ pub const GPUAllocator = struct {
                         .memory = &memory.memory,
                         .range = range,
                     };
-                } else {
-                    return error.OutOfMemory;
                 }
             }
 
@@ -131,7 +129,12 @@ pub const GPUAllocator = struct {
             }
         }
 
-        const memory = try VulkanMemory.new(self.context, memoryAllocationSize, typeFilter, memoryProperties);
+        const memory = try VulkanMemory.new(
+            self.context,
+            if (size < minAllocSize) minAllocSize else size,
+            typeFilter,
+            memoryProperties,
+        );
         try self.memories.append(AllocatedMemory.new(
             memory,
             self.allocator,
