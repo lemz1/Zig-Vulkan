@@ -321,7 +321,7 @@ pub const Application = struct {
                 const result = self.swapchain.acquireNextImage(&self.vulkanContext, &acquireSemaphore, null, &imageIndex);
                 switch (result) {
                     c.VK_ERROR_OUT_OF_DATE_KHR, c.VK_SUBOPTIMAL_KHR => {
-                        self.recreateSwapchain() catch {
+                        self.recreateSwapchain(&gpuAllocator, &framebuffers, &depthbuffers) catch {
                             std.debug.print("[Vulkan] Could not recreate Swapchain\n", .{});
                         };
 
@@ -407,7 +407,7 @@ pub const Application = struct {
                     const result = self.vulkanContext.device.graphicsQueue.present(&presentInfo);
                     switch (result) {
                         c.VK_ERROR_OUT_OF_DATE_KHR, c.VK_SUBOPTIMAL_KHR => {
-                            self.recreateSwapchain() catch {
+                            self.recreateSwapchain(&gpuAllocator, &framebuffers, &depthbuffers) catch {
                                 std.debug.print("[Vulkan] Could not recreate Swapchain\n", .{});
                             };
                         },
@@ -424,49 +424,56 @@ pub const Application = struct {
         self.onDestroy.dispatch(.{ .app = self });
     }
 
-    fn recreateSwapchain(_: *Application) !void {
-        // var surfaceCapabilities: c.VkSurfaceCapabilitiesKHR = undefined;
-        // vkCheck(c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(self.vulkanContext.device.physicalDevice, self.surface.handle, &surfaceCapabilities));
-        // if (surfaceCapabilities.currentExtent.width == 0 or surfaceCapabilities.currentExtent.height == 0) {
-        //     return;
-        // }
+    fn recreateSwapchain(
+        self: *Application,
+        gpuAllocator: *GPUAllocator,
+        framebuffers: *[]VulkanFramebuffer,
+        depthbuffers: *[]Image,
+    ) !void {
+        var surfaceCapabilities: c.VkSurfaceCapabilitiesKHR = undefined;
+        vkCheck(c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(self.vulkanContext.device.physicalDevice, self.surface.handle, &surfaceCapabilities));
+        if (surfaceCapabilities.currentExtent.width == 0 or surfaceCapabilities.currentExtent.height == 0) {
+            return;
+        }
 
-        // self.vulkanContext.device.wait();
+        self.vulkanContext.device.wait();
 
-        // var oldSwapchain = self.swapchain;
-        // self.swapchain = try VulkanSwapchain.new(&self.vulkanContext, &self.surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &oldSwapchain, self.allocator);
-        // oldSwapchain.destroy(&self.vulkanContext);
+        var oldSwapchain = self.swapchain;
+        self.swapchain = try VulkanSwapchain.new(&self.vulkanContext, &self.surface, c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &oldSwapchain, self.allocator);
+        oldSwapchain.destroy(&self.vulkanContext);
 
-        // self.renderPass.destroy(&self.vulkanContext);
-        // self.renderPass = try VulkanRenderPass.new(&self.vulkanContext, self.swapchain.format);
+        self.renderPass.destroy(&self.vulkanContext);
+        self.renderPass = try VulkanRenderPass.new(&self.vulkanContext, self.swapchain.format);
 
-        // for (0..framebuffers.len) |i| {
-        //     framebuffers[i].destroy(&self.vulkanContext);
-        //     depthbuffers[i].destroy(&self.vulkanContext);
-        // }
-        // self.allocator.free(framebuffers);
-        // self.allocator.free(depthbuffers);
-        // depthbuffers = try self.allocator.alloc(VulkanImage, self.swapchain.images.len);
-        // framebuffers = try self.allocator.alloc(VulkanFramebuffer, self.swapchain.images.len);
+        for (0..framebuffers.len) |i| {
+            framebuffers.*[i].destroy(&self.vulkanContext);
+            depthbuffers.*[i].destroy(gpuAllocator);
+        }
+        self.allocator.free(framebuffers.*);
+        self.allocator.free(depthbuffers.*);
+        depthbuffers.* = try self.allocator.alloc(Image, self.swapchain.images.len);
+        framebuffers.* = try self.allocator.alloc(VulkanFramebuffer, self.swapchain.images.len);
 
-        // for (0..framebuffers.len) |i| {
-        //     depthbuffers[i] = try VulkanImage.new(
-        //         &self.vulkanContext,
-        //         &ImageData.empty(self.swapchain.width, self.swapchain.height, .Depth32),
-        //         c.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        //     );
-        //     const attachments = [_]c.VkImageView{
-        //         self.swapchain.imageViews[i],
-        //         depthbuffers[i].view,
-        //     };
-        //     framebuffers[i] = try VulkanFramebuffer.new(
-        //         &self.vulkanContext,
-        //         &self.renderPass,
-        //         @intCast(attachments.len),
-        //         &attachments,
-        //         self.swapchain.width,
-        //         self.swapchain.height,
-        //     );
-        // }
+        for (0..framebuffers.len) |i| {
+            depthbuffers.*[i] = Image.new(
+                gpuAllocator,
+                &ImageData.empty(self.swapchain.width, self.swapchain.height, .Depth32),
+                c.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            ) catch return;
+
+            const attachments = [_]c.VkImageView{
+                self.swapchain.imageViews[i],
+                depthbuffers.*[i].view.handle,
+            };
+
+            framebuffers.*[i] = VulkanFramebuffer.new(
+                &self.vulkanContext,
+                &self.renderPass,
+                @intCast(attachments.len),
+                &attachments,
+                self.swapchain.width,
+                self.swapchain.height,
+            ) catch return;
+        }
     }
 };
