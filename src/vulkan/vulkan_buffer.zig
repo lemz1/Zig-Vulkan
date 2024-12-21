@@ -8,15 +8,9 @@ const VulkanContext = vulkan.VulkanContext;
 pub const VulkanBuffer = struct {
     handle: c.VkBuffer,
 
-    properties: c.VkMemoryPropertyFlags,
     requirements: c.VkMemoryRequirements,
 
-    pub fn new(
-        context: *const VulkanContext,
-        size: u64,
-        usage: c.VkBufferUsageFlags,
-        memoryProperties: c.VkMemoryPropertyFlags,
-    ) !VulkanBuffer {
+    pub fn new(context: *const VulkanContext, size: u64, usage: c.VkBufferUsageFlags) !VulkanBuffer {
         var resizableUsage = usage;
         if (!context.device.hasResizableBAR) {
             resizableUsage |= c.VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -44,7 +38,6 @@ pub const VulkanBuffer = struct {
         return .{
             .handle = buffer,
 
-            .properties = memoryProperties,
             .requirements = memoryRequirements,
         };
     }

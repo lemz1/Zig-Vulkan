@@ -1,5 +1,4 @@
 const std = @import("std");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
@@ -8,9 +7,9 @@ const VulkanContext = vulkan.VulkanContext;
 const VulkanDescriptorPool = vulkan.VulkanDescriptorPool;
 const VulkanDescriptorSetLayout = vulkan.VulkanDescriptorSetLayout;
 const VulkanSampler = vulkan.VulkanSampler;
-const VulkanImage = vulkan.VulkanImage;
+const VulkanImageView = vulkan.VulkanImageView;
 const VulkanBuffer = vulkan.VulkanBuffer;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 
 pub const VulkanDescriptorSet = struct {
     handle: c.VkDescriptorSet,
@@ -45,12 +44,12 @@ pub const VulkanDescriptorSet = struct {
         self: *const VulkanDescriptorSet,
         context: *const VulkanContext,
         sampler: *const VulkanSampler,
-        image: *const VulkanImage,
+        view: *const VulkanImageView,
         binding: u32,
     ) void {
         var imageInfo = c.VkDescriptorImageInfo{};
         imageInfo.sampler = sampler.handle;
-        imageInfo.imageView = image.view;
+        imageInfo.imageView = view.handle;
         imageInfo.imageLayout = c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         var descriptorWrite = c.VkWriteDescriptorSet{};

@@ -1,11 +1,10 @@
 const std = @import("std");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const VulkanContext = vulkan.VulkanContext;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
 pub const VulkanSamplerFilter = enum(c.VkFilter) {

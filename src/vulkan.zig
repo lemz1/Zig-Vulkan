@@ -1,3 +1,6 @@
+pub const strcmp = @import("vulkan/base.zig").strcmp;
+pub const vkCheck = @import("vulkan/base.zig").vkCheck;
+pub const findMemoryType = @import("vulkan/base.zig").findMemoryType;
 pub const VulkanContext = @import("vulkan/vulkan_context.zig").VulkanContext;
 pub const VulkanContextCreateOptions = @import("vulkan/vulkan_context.zig").VulkanContextCreateOptions;
 pub const VulkanInstance = @import("vulkan/vulkan_instance.zig").VulkanInstance;
@@ -16,6 +19,7 @@ pub const VulkanPipeline = @import("vulkan/vulkan_pipeline.zig").VulkanPipeline;
 pub const VulkanMemory = @import("vulkan/vulkan_memory.zig").VulkanMemory;
 pub const VulkanBuffer = @import("vulkan/vulkan_buffer.zig").VulkanBuffer;
 pub const VulkanImage = @import("vulkan/vulkan_image.zig").VulkanImage;
+pub const VulkanImageView = @import("vulkan/vulkan_image_view.zig").VulkanImageView;
 pub const VulkanSampler = @import("vulkan/vulkan_sampler.zig").VulkanSampler;
 pub const VulkanDescriptorPool = @import("vulkan/vulkan_descriptor_pool.zig").VulkanDescriptorPool;
 pub const VulkanDescriptorSet = @import("vulkan/vulkan_descriptor_set.zig").VulkanDescriptorSet;

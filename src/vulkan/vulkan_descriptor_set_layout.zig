@@ -1,5 +1,4 @@
 const std = @import("std");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
@@ -9,7 +8,7 @@ const VulkanDescriptorPool = vulkan.VulkanDescriptorPool;
 const VulkanSampler = vulkan.VulkanSampler;
 const VulkanImage = vulkan.VulkanImage;
 const VulkanBuffer = vulkan.VulkanBuffer;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 
 pub const VulkanDescriptorSetLayout = struct {
     handle: c.VkDescriptorSetLayout,

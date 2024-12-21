@@ -1,5 +1,4 @@
 const std = @import("std");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
@@ -8,7 +7,7 @@ const VulkanContext = vulkan.VulkanContext;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
 const VulkanDescriptorSetLayout = vulkan.VulkanDescriptorSetLayout;
 const VulkanShaderModule = vulkan.VulkanShaderModule;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 
 pub const VulkanPipeline = struct {
     handle: c.VkPipeline,

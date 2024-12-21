@@ -1,6 +1,5 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
 const core = @import("../core.zig");
@@ -10,7 +9,7 @@ const Allocator = std.mem.Allocator;
 const VulkanInstance = vulkan.VulkanInstance;
 const VulkanDevice = vulkan.VulkanDevice;
 const GLFW = core.GLFW;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 
 const enableValidationLayers = true;
 

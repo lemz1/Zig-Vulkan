@@ -1,13 +1,14 @@
 const gpu = @import("../gpu.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
-const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
 const GPUAllocator = gpu.GPUAllocator;
 const MemoryBlock = gpu.MemoryBlock;
 const VulkanContext = vulkan.VulkanContext;
 const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
+const vkCheck = vulkan.vkCheck;
+const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
 pub const VertexBuffer = struct {
     buffer: VulkanBuffer,
@@ -21,20 +22,26 @@ pub const VertexBuffer = struct {
             gpuAllocator.context,
             size,
             c.VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         );
 
-        const memory = try gpuAllocator.alloc(size, buffer.properties, buffer.requirements);
+        const memory = try gpuAllocator.alloc(
+            size,
+            c.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            buffer.requirements,
+        );
         memory.memory.bindBuffer(gpuAllocator.context, &buffer, memory.range.offset);
 
         const stagingBuffer = try VulkanBuffer.new(
             gpuAllocator.context,
             size,
             c.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         );
 
-        const stagingMemory = try gpuAllocator.alloc(size, stagingBuffer.properties, stagingBuffer.requirements);
+        const stagingMemory = try gpuAllocator.alloc(
+            size,
+            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            stagingBuffer.requirements,
+        );
         stagingMemory.memory.bindBuffer(gpuAllocator.context, &stagingBuffer, stagingMemory.range.offset);
 
         return .{
@@ -72,12 +79,12 @@ pub const VertexBuffer = struct {
 
         if (context.device.hasResizableBAR) {
             var mapped: ?*anyopaque = undefined;
-            _ = c.vkMapMemory(context.device.handle, self.memory.memory.handle, self.memory.range.offset, size, 0, &mapped);
+            vkCheck(c.vkMapMemory(context.device.handle, self.memory.memory.handle, self.memory.range.offset, size, 0, &mapped));
             _ = memcpy(mapped, data.ptr, size);
             c.vkUnmapMemory(context.device.handle, self.memory.memory.handle);
         } else {
             var mapped: ?*anyopaque = undefined;
-            _ = c.vkMapMemory(context.device.handle, self.stagingMemory.memory.handle, self.stagingMemory.range.offset, size, 0, &mapped);
+            vkCheck(c.vkMapMemory(context.device.handle, self.stagingMemory.memory.handle, self.stagingMemory.range.offset, size, 0, &mapped));
             _ = memcpy(mapped, data.ptr, size);
             c.vkUnmapMemory(context.device.handle, self.stagingMemory.memory.handle);
 

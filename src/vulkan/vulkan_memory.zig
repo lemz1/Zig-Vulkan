@@ -1,12 +1,12 @@
 const std = @import("std");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const VulkanContext = vulkan.VulkanContext;
 const VulkanBuffer = vulkan.VulkanBuffer;
 const VulkanImage = vulkan.VulkanImage;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
+const findMemoryType = vulkan.findMemoryType;
 
 pub const VulkanMemory = struct {
     handle: c.VkDeviceMemory,
@@ -15,7 +15,7 @@ pub const VulkanMemory = struct {
     memoryProperties: c.VkMemoryPropertyFlags,
 
     pub fn new(context: *const VulkanContext, size: c.VkDeviceSize, typeFilter: u32, memoryProperties: c.VkMemoryPropertyFlags) !VulkanMemory {
-        const memoryIndex = try base.findMemoryType(context, typeFilter, memoryProperties);
+        const memoryIndex = try findMemoryType(context, typeFilter, memoryProperties);
 
         var allocateInfo = c.VkMemoryAllocateInfo{};
         allocateInfo.sType = c.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;

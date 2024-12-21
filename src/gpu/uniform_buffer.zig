@@ -1,12 +1,13 @@
 const gpu = @import("../gpu.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
-const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
 const GPUAllocator = gpu.GPUAllocator;
 const MemoryBlock = gpu.MemoryBlock;
 const VulkanContext = vulkan.VulkanContext;
 const VulkanBuffer = vulkan.VulkanBuffer;
+const vkCheck = vulkan.vkCheck;
+const memcpy = @cImport(@cInclude("memory.h")).memcpy;
 
 pub const UniformBuffer = struct {
     buffer: VulkanBuffer,
@@ -17,10 +18,13 @@ pub const UniformBuffer = struct {
             gpuAllocator.context,
             size,
             c.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         );
 
-        const memory = try gpuAllocator.alloc(size, buffer.properties, buffer.requirements);
+        const memory = try gpuAllocator.alloc(
+            size,
+            c.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | c.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            buffer.requirements,
+        );
         memory.memory.bindBuffer(gpuAllocator.context, &buffer, memory.range.offset);
 
         return .{
@@ -50,7 +54,7 @@ pub const UniformBuffer = struct {
         const size: c.VkDeviceSize = data.len * @sizeOf(typeInfo.pointer.child);
 
         var mapped: ?*anyopaque = undefined;
-        _ = c.vkMapMemory(context.device.handle, self.memory.memory.handle, self.memory.range.offset, size, 0, &mapped);
+        vkCheck(c.vkMapMemory(context.device.handle, self.memory.memory.handle, self.memory.range.offset, size, 0, &mapped));
         _ = memcpy(mapped, data.ptr, size);
         c.vkUnmapMemory(context.device.handle, self.memory.memory.handle);
     }

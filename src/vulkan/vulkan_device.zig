@@ -1,12 +1,12 @@
 const std = @import("std");
-const base = @import("base.zig");
+
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
 const VulkanInstance = vulkan.VulkanInstance;
 const VulkanQueue = vulkan.VulkanQueue;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 
 pub const VulkanDevice = struct {
     handle: c.VkDevice,
@@ -16,7 +16,12 @@ pub const VulkanDevice = struct {
 
     hasResizableBAR: bool,
 
-    pub fn new(instance: *const VulkanInstance, deviceExtensionsCount: u32, deviceExtensions: [*c]const [*c]const u8, allocator: Allocator) !VulkanDevice {
+    pub fn new(
+        instance: *const VulkanInstance,
+        deviceExtensionsCount: u32,
+        deviceExtensions: [*c]const [*c]const u8,
+        allocator: Allocator,
+    ) !VulkanDevice {
         var deviceCount: u32 = 0;
         vkCheck(c.vkEnumeratePhysicalDevices(instance.handle, &deviceCount, null));
         const physicalDevices = try allocator.alloc(c.VkPhysicalDevice, deviceCount);

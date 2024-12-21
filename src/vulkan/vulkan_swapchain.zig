@@ -1,5 +1,4 @@
 const std = @import("std");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
@@ -8,7 +7,7 @@ const VulkanContext = vulkan.VulkanContext;
 const VulkanSurface = vulkan.VulkanSurface;
 const VulkanFence = vulkan.VulkanFence;
 const VulkanSemaphore = vulkan.VulkanSemaphore;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 
 pub const VulkanSwapchain = struct {
     handle: c.VkSwapchainKHR,

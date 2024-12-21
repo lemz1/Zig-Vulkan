@@ -1,11 +1,11 @@
 const std = @import("std");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
 const VulkanDevice = vulkan.VulkanDevice;
-const vkCheck = base.vkCheck;
+const strcmp = vulkan.strcmp;
+const vkCheck = vulkan.vkCheck;
 
 pub const VulkanInstance = struct {
     handle: c.VkInstance,
@@ -31,7 +31,7 @@ pub const VulkanInstance = struct {
             for (0..validationLayersCount) |i| {
                 var found = false;
                 for (availableLayers) |*layerProperties| {
-                    if (base.strcmp(validationLayers[i], &layerProperties.layerName)) {
+                    if (strcmp(validationLayers[i], &layerProperties.layerName)) {
                         found = true;
                         break;
                     }

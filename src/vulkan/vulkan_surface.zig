@@ -1,12 +1,11 @@
 const std = @import("std");
-const base = @import("base.zig");
 const core = @import("../core.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Window = core.Window;
 const VulkanContext = vulkan.VulkanContext;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 
 pub const VulkanSurface = struct {
     handle: c.VkSurfaceKHR,

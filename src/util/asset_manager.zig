@@ -1,6 +1,7 @@
 const std = @import("std");
 const vulkan = @import("../vulkan.zig");
 const util = @import("../util.zig");
+const gpu = @import("../gpu.zig");
 const graphics = @import("../graphics.zig");
 const glslang = @import("../glslang.zig");
 const spvc = @import("../spvc.zig");
@@ -12,9 +13,12 @@ const Image = graphics.Image;
 const Pipeline = graphics.Pipeline;
 const VulkanContext = vulkan.VulkanContext;
 const VulkanRenderPass = vulkan.VulkanRenderPass;
+const VulkanCommandBuffer = vulkan.VulkanCommandBuffer;
 const GLSLangShaderStage = glslang.GLSLangShaderStage;
 const RuntimeShader = glslang.RuntimeShader;
 const SPVCContext = spvc.SPVCContext;
+const ImageData = util.ImageData;
+const GPUAllocator = gpu.GPUAllocator;
 
 const AssetEntry = struct {
     manager: *const AssetManager,
@@ -33,10 +37,10 @@ const AssetEntry = struct {
 
         switch (self.asset) {
             .image => |*image| {
-                image.destroy(self.manager.vulkanContext);
+                image.destroy(self.manager.gpuAllocator);
             },
             .pipeline => |*pipeline| {
-                pipeline.destroy(self.manager.vulkanContext);
+                pipeline.destroy(self.manager.gpuAllocator.context);
             },
         }
     }
@@ -62,15 +66,15 @@ fn AssetHandle(comptime T: type) type {
 }
 
 pub const AssetManager = struct {
-    vulkanContext: *const VulkanContext,
+    gpuAllocator: *GPUAllocator,
     spvcContext: *const SPVCContext,
     assets: StringHashMap(AssetEntry),
 
     allocator: Allocator,
 
-    pub fn new(vulkanContext: *const VulkanContext, spvcContext: *const SPVCContext, allocator: Allocator) AssetManager {
+    pub fn new(gpuAllocator: *GPUAllocator, spvcContext: *const SPVCContext, allocator: Allocator) AssetManager {
         return .{
-            .vulkanContext = vulkanContext,
+            .gpuAllocator = gpuAllocator,
             .spvcContext = spvcContext,
             .assets = StringHashMap(AssetEntry).init(allocator),
 
@@ -112,12 +116,27 @@ pub const AssetManager = struct {
 
     pub fn loadImage(self: *AssetManager, path: []const u8) !AssetHandle(Image) {
         const entry = self.assets.getPtr(path) orelse blk: {
+            var data = try ImageData.load(path, .RGBA8);
+            defer data.destroy();
+
+            const image = try Image.new(
+                self.gpuAllocator,
+                &data,
+                c.VK_IMAGE_USAGE_SAMPLED_BIT | c.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            );
+            try image.uploadData(
+                self.gpuAllocator,
+                &data,
+                c.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                c.VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            );
+
             try self.assets.put(
                 path,
                 .{
                     .manager = self,
                     .asset = .{
-                        .image = try Image.new(self.vulkanContext, path, .RGBA8),
+                        .image = image,
                     },
                 },
             );
@@ -140,7 +159,7 @@ pub const AssetManager = struct {
                     .manager = self,
                     .asset = .{
                         .pipeline = try Pipeline.graphicsPipeline(
-                            self.vulkanContext,
+                            self.gpuAllocator.context,
                             self.spvcContext,
                             renderPass,
                             vertexShader,

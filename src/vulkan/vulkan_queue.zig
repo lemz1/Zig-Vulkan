@@ -1,10 +1,9 @@
 const std = @import("std");
-const base = @import("base.zig");
 const vulkan = @import("../vulkan.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const Allocator = std.mem.Allocator;
-const vkCheck = base.vkCheck;
+const vkCheck = vulkan.vkCheck;
 
 const VulkanFence = vulkan.VulkanFence;
 

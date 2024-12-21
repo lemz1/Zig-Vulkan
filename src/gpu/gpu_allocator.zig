@@ -1,12 +1,13 @@
 const std = @import("std");
 const vulkan = @import("../vulkan.zig");
+const util = @import("../util.zig");
 const c = @cImport(@cInclude("vulkan/vulkan.h"));
 
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const VulkanMemory = vulkan.VulkanMemory;
 const VulkanContext = vulkan.VulkanContext;
-const alignUpPow2 = @import("../util/alignment.zig").alignUpPow2;
+const alignUpPow2 = util.alignUpPow2;
 
 const minAllocSize = 16 * 1024 * 1024;
 
@@ -111,6 +112,11 @@ pub const GPUAllocator = struct {
                     memory.ranges.items[i].offset + memory.ranges.items[i].size,
                     memoryRequirements.alignment,
                 );
+
+                if (offset > memory.ranges.items[i + 1].offset) {
+                    continue;
+                }
+
                 const blockSize = memory.ranges.items[i + 1].offset - offset;
 
                 if (blockSize >= size) {
@@ -155,9 +161,14 @@ pub const GPUAllocator = struct {
     }
 
     pub fn free(self: *GPUAllocator, block: *const MemoryBlock) void {
-        for (self.memories.items) |*memory| {
+        for (0..self.memories.items.len) |i| {
+            var memory = &self.memories.items[i];
             if (&memory.memory == block.memory) {
                 memory.remove(block.range);
+                if (memory.ranges.items.len == 0) {
+                    memory.destroy(self.context);
+                    _ = self.memories.swapRemove(i);
+                }
                 return;
             }
         }
